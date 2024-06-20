@@ -1,6 +1,6 @@
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('Custom Menu')
+  ui.createMenu('Uncle Bob')
     .addItem('Prepare Documents', 'formatRoadmapAndApplyFormatting')
     .addToUi();
 }
