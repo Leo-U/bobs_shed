@@ -6,6 +6,7 @@ function onOpen() {
 }
 
 function formatRoadmapAndApplyFormatting() {
+  const ui = SpreadsheetApp.getUi();
   const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
   const file = DriveApp.getFileById(fileId);
@@ -25,6 +26,7 @@ function formatRoadmapAndApplyFormatting() {
   const files = subFolders.next().getFiles();
   const fileData = [];
   const checkBoxes = [];
+  let formattedCount = 0;  // Counter for formatted sheets
 
   while (files.hasNext()) {
     let file = files.next();
@@ -49,17 +51,27 @@ function formatRoadmapAndApplyFormatting() {
       cell.setFormula(formula[0]);
       const linkedSheetId = formula[0].match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)[1];
       const linkedSheet = SpreadsheetApp.openById(linkedSheetId).getActiveSheet();
-      setupAndColorSheet(linkedSheet);
+      if (linkedSheet.getRange('Z1').getValue() !== 'Formatted') {
+        setupAndColorSheet(linkedSheet);
+        linkedSheet.getRange('Z1').setValue('Formatted');
+        formattedCount++;  // Increment the counter when a sheet is formatted
+      }
     });
 
     const checkBoxRange = mainSheet.getRange(2, 2, checkBoxes.length, 1);
     checkBoxRange.insertCheckboxes();
+
+    if (formattedCount === 0) {  // Check if no sheets were formatted
+      ui.alert('All linked Q-A set sheets have already been formatted. No changes were made.');
+    }
   } else {
     mainSheet.getRange(2, 1, 1, 1).setValue('No files found').setFontSize(10).setFontWeight('normal').setWrap(true);
   }
 }
 
 function setupAndColorSheet(sheet) {
+  if (sheet.getRange('Z1').getValue() === 'Formatted') return;  // Check if already formatted
+
   const lastRow = sheet.getLastRow();
   const checkboxColumns = ['B', 'C', 'D', 'E'];
   const contentColumn = 'C';
@@ -76,7 +88,7 @@ function setupAndColorSheet(sheet) {
   });
 
   let rules = sheet.getConditionalFormatRules();
-  const colors = ['#8FC08F', '#FFF89A', '#dd7e6b']; 
+  const colors = ['#8FC08F', '#FFF89A', '#dd7e6b'];
 
   checkboxColumns.forEach((column, index) => {
     const rule = SpreadsheetApp.newConditionalFormatRule()
@@ -100,6 +112,8 @@ function setupAndColorSheet(sheet) {
 }
 
 function colorCheckboxes(sheet, lastRow) {
+  if (sheet.getRange('Z1').getValue() === 'Formatted') return;  // Check if already formatted
+
   var range = sheet.getRange("B1:D" + lastRow);
   var values = range.getValues();
   var colors = range.getFontColors();
@@ -126,6 +140,8 @@ function colorCheckboxes(sheet, lastRow) {
 }
 
 function applyBoldAndRemoveCheckboxesEfficiently(sheet) {
+  if (sheet.getRange('Z1').getValue() === 'Formatted') return;  // Check if already formatted
+
   const range = sheet.getDataRange();
   const values = range.getValues();
 
