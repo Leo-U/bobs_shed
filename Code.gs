@@ -1,3 +1,10 @@
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('Custom Menu')
+    .addItem('Prepare Documents', 'formatRoadmapAndApplyFormatting')
+    .addToUi();
+}
+
 function formatRoadmapAndApplyFormatting() {
   const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
