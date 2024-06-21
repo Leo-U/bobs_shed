@@ -214,12 +214,20 @@ function processQASheet(qaSheet, mainSheet, rowIndex) {
   const percentGreen = totalQuestions > 0 ? (greenQuestions / totalQuestions * 100) : 0;
   const formattedPercentGreen = percentGreen.toFixed(0) + '%';
 
+  // Determine the color based on the percentage green
+  var color = '';
+  if (percentGreen >= 90) color = '#93c47d'; // Green
+  else if (percentGreen >= 80) color = '#b6d7a8'; // Light Green
+  else if (percentGreen >= 70) color = '#ffd966'; // Yellow
+  else if (percentGreen >= 60) color = '#f6b26b'; // Orange
+  else color = '#dd7e6b'; // Red
+
   // Find the first empty cell in the specified row to place the new data
   const rowRange = mainSheet.getRange(rowIndex, 3, 1, mainSheet.getLastColumn());
   const rowValues = rowRange.getValues()[0];
   let targetColumn = rowValues.findIndex(value => !value) + 3; // +3 because range starts at column C
-  if (targetColumn === 2) {  // +3 made it out of bounds, meaning row is full
-    targetColumn = mainSheet.getLastColumn() + 1;  // Move to the next available column outside current range
+  if (targetColumn === 2) {  // If no empty cell found, set to last column + 1
+    targetColumn = mainSheet.getLastColumn() + 1;
   }
 
   // Prepare data to be written
@@ -227,5 +235,9 @@ function processQASheet(qaSheet, mainSheet, rowIndex) {
   const outputText = `${currentDate}\n${totalQuestions} t ${greenQuestions} g\n${formattedPercentGreen}`;
 
   // Write data to the next available column in the same row
-  mainSheet.getRange(rowIndex, targetColumn).setValue(outputText);
+  const targetCell = mainSheet.getRange(rowIndex, targetColumn);
+  targetCell.setValue(outputText);
+  targetCell.setBackground(color); // Set the background color based on % Green
 }
+
+
