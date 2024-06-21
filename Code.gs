@@ -200,11 +200,12 @@ function processQASheet(qaSheet, mainSheet, rowIndex) {
   let totalQuestions = 0;
   let greenQuestions = 0;
 
-  // Counting total and green questions based on some conditions assumed in column B
+  // Iterate over each row in the data from the Q-A sheet
   data.forEach(row => {
-    if (row[1]) {  // Assuming the relevant data is in column B
-      totalQuestions++;
-      if (row[1] === true) {  // Assuming true represents a 'green' question
+    // Let's assume that any non-empty value in column B counts as a question
+    if (row[1] !== "" && row[1] !== undefined && row[1] !== null) {
+      totalQuestions++; // Count every non-empty entry as a question
+      if (row[1] === true) { // Specifically count 'true' values as 'green' questions
         greenQuestions++;
       }
     }
@@ -226,7 +227,7 @@ function processQASheet(qaSheet, mainSheet, rowIndex) {
   const rowRange = mainSheet.getRange(rowIndex, 3, 1, mainSheet.getLastColumn());
   const rowValues = rowRange.getValues()[0];
   let targetColumn = rowValues.findIndex(value => !value) + 3; // +3 because range starts at column C
-  if (targetColumn === 2) {  // If no empty cell found, set to last column + 1
+  if (targetColumn < 3) { // Correct handling if no empty cell is found
     targetColumn = mainSheet.getLastColumn() + 1;
   }
 
@@ -239,5 +240,3 @@ function processQASheet(qaSheet, mainSheet, rowIndex) {
   targetCell.setValue(outputText);
   targetCell.setBackground(color); // Set the background color based on % Green
 }
-
-
