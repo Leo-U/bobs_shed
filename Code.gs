@@ -2,6 +2,7 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('Uncle Bob')
     .addItem('Prepare Documents', 'formatRoadmapAndApplyFormatting')
+    .addItem('Map Progress', 'countQuestions')
     .addToUi();
 }
 
@@ -26,7 +27,6 @@ function formatRoadmapAndApplyFormatting() {
   const files = subFolders.next().getFiles();
   const fileData = [];
   const checkBoxes = [];
-  let formattedCount = 0;  // Counter for formatted sheets
 
   while (files.hasNext()) {
     let file = files.next();
@@ -34,7 +34,7 @@ function formatRoadmapAndApplyFormatting() {
     const name = file.getName();
     const hyperlinkFormula = `=HYPERLINK("${url}", "${name}")`;
     fileData.push([hyperlinkFormula]);
-    checkBoxes.push([true]);  // Initially set all checkboxes to unchecked
+    checkBoxes.push([true]);
   }
 
   mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Run program']]).setFontWeight('bold');
@@ -49,21 +49,15 @@ function formatRoadmapAndApplyFormatting() {
     fileData.forEach((formula, index) => {
       const cell = mainSheet.getRange(index + 2, 1);
       cell.setFormula(formula[0]);
-      const linkedSheetId = formula[0].match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)[1];
-      const linkedSheet = SpreadsheetApp.openById(linkedSheetId).getActiveSheet();
+      const linkedSheet = SpreadsheetApp.openByUrl(cell.getFormula().match(/"(.*?)"/)[1]).getActiveSheet();
       if (linkedSheet.getRange('Z1').getValue() !== 'Formatted') {
         setupAndColorSheet(linkedSheet);
         linkedSheet.getRange('Z1').setValue('Formatted');
-        formattedCount++;  // Increment the counter when a sheet is formatted
       }
     });
 
     const checkBoxRange = mainSheet.getRange(2, 2, checkBoxes.length, 1);
     checkBoxRange.insertCheckboxes();
-
-    if (formattedCount === 0) {  // Check if no sheets were formatted
-      ui.alert('All linked Q-A set sheets have already been formatted. No changes were made.');
-    }
   } else {
     mainSheet.getRange(2, 1, 1, 1).setValue('No files found').setFontSize(10).setFontWeight('normal').setWrap(true);
   }
@@ -172,4 +166,66 @@ function applyBoldAndRemoveCheckboxesEfficiently(sheet) {
     rangeList.clearContent();
     rangeList.clearDataValidations();
   }
+}
+
+function countQuestions() {
+  const ui = SpreadsheetApp.getUi();
+  const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const rows = mainSheet.getDataRange().getValues();
+
+  let anyProcessed = false;
+
+  rows.forEach((row, index) => {
+    // Check if the checkbox in column B is checked
+    if (row[1] === true) {
+      const cell = mainSheet.getRange('A' + (index + 1));
+      const richText = cell.getRichTextValue();
+      const linkUrl = richText.getLinkUrl();
+
+      if (linkUrl) { // Ensure both checkbox is checked and hyperlink is present
+        anyProcessed = true;
+        const linkedSheet = SpreadsheetApp.openByUrl(linkUrl).getActiveSheet();
+        processQASheet(linkedSheet, mainSheet, index + 1);
+      }
+    }
+  });
+
+  if (!anyProcessed) {
+    ui.alert('No Q-A sets selected or valid to count questions. Please check at least one and ensure they contain valid links.');
+  }
+}
+
+function processQASheet(qaSheet, mainSheet, rowIndex) {
+  const data = qaSheet.getDataRange().getValues();
+  let totalQuestions = 0;
+  let greenQuestions = 0;
+
+  // Counting total and green questions based on some conditions assumed in column B
+  data.forEach(row => {
+    if (row[1]) {  // Assuming the relevant data is in column B
+      totalQuestions++;
+      if (row[1] === true) {  // Assuming true represents a 'green' question
+        greenQuestions++;
+      }
+    }
+  });
+
+  // Calculate percentage of green questions
+  const percentGreen = totalQuestions > 0 ? (greenQuestions / totalQuestions * 100) : 0;
+  const formattedPercentGreen = percentGreen.toFixed(0) + '%';
+
+  // Find the first empty cell in the specified row to place the new data
+  const rowRange = mainSheet.getRange(rowIndex, 3, 1, mainSheet.getLastColumn());
+  const rowValues = rowRange.getValues()[0];
+  let targetColumn = rowValues.findIndex(value => !value) + 3; // +3 because range starts at column C
+  if (targetColumn === 2) {  // +3 made it out of bounds, meaning row is full
+    targetColumn = mainSheet.getLastColumn() + 1;  // Move to the next available column outside current range
+  }
+
+  // Prepare data to be written
+  const currentDate = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd.MM.yy");
+  const outputText = `${currentDate}\n${totalQuestions} t ${greenQuestions} g\n${formattedPercentGreen}`;
+
+  // Write data to the next available column in the same row
+  mainSheet.getRange(rowIndex, targetColumn).setValue(outputText);
 }
