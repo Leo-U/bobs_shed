@@ -36,7 +36,7 @@ function formatRoadmapAndApplyFormatting() {
     }
   }
 
-  mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Run program']]).setFontWeight('bold');
+  mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Map progress?']]).setFontWeight('bold');
   if (fileData.length > 0) {
     const startRow = existingUrls.length + 2;
     const range = mainSheet.getRange(startRow, 1, fileData.length, 1);
@@ -55,11 +55,8 @@ function formatRoadmapAndApplyFormatting() {
     });
     const checkBoxRange = mainSheet.getRange(startRow, 2, checkBoxes.length, 1);
     checkBoxRange.insertCheckboxes();
-  } else {
-    mainSheet.getRange('A2:A2').setValue('No new files found').setFontSize(10).setFontWeight('normal').setWrap(true);
   }
 }
-
 
 function setupAndColorSheet(sheet) {
   if (sheet.getRange('Z1').getValue() === 'Formatted') return;  // Check if already formatted
