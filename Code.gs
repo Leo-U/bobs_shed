@@ -12,10 +12,6 @@ function formatRoadmapAndFiles() {
   const file = DriveApp.getFileById(fileId);
   const folders = file.getParents();
 
-  if (!folders.hasNext()) {
-    throw new Error('No parent folders found.');
-  }
-
   const folder = folders.next();
   const subFolders = folder.getFoldersByName('Q-A Sets');
 
