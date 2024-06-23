@@ -1,17 +1,16 @@
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('Uncle Bob')
-    .addItem('Prepare Documents', 'formatRoadmapAndFiles')
+    .addItem('Prepare Documents', 'formatRoadmapAndApplyFormatting')
     .addItem('Map Progress', 'countQuestions')
     .addToUi();
 }
 
-function formatRoadmapAndFiles() {
+function formatRoadmapAndApplyFormatting() {
   const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
   const file = DriveApp.getFileById(fileId);
   const folders = file.getParents();
-
   const folder = folders.next();
   const subFolders = folder.getFoldersByName('Q-A Sets');
 
@@ -22,22 +21,15 @@ function formatRoadmapAndFiles() {
   const files = subFolders.next().getFiles();
   const fileData = [];
   const checkBoxes = [];
-
-  // Get the last row with content in column A and extract URLs from hyperlinks
   const lastRow = mainSheet.getLastRow();
   const existingHyperlinks = lastRow > 1 ? mainSheet.getRange('A2:A' + lastRow).getFormulas() : [];
-  const existingUrls = existingHyperlinks.map(row => {
-    const matches = row[0].match(/"([^"]+)"/); // Extract URL from the HYPERLINK formula
-    return matches ? matches[1] : "";
-  });
+  const existingUrls = existingHyperlinks.map(row => row[0].match(/"([^"]+)"/)[1]);
 
   while (files.hasNext()) {
     let file = files.next();
     const url = file.getUrl();
     const name = file.getName();
     const hyperlinkFormula = `=HYPERLINK("${url}", "${name}")`;
-
-    // Check if the URL is already in the list of existing URLs
     if (!existingUrls.includes(url)) {
       fileData.push([hyperlinkFormula]);
       checkBoxes.push([true]);
@@ -45,25 +37,29 @@ function formatRoadmapAndFiles() {
   }
 
   mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Run program']]).setFontWeight('bold');
-
   if (fileData.length > 0) {
-    // Find the first empty row in column A to start adding new hyperlinks
-    const startRow = existingUrls.length + 2; // Adjusts for header row and finds the first empty cell
-
+    const startRow = existingUrls.length + 2;
     const range = mainSheet.getRange(startRow, 1, fileData.length, 1);
     range.setValues(fileData);
     range.setFontSize(10);
     range.setFontWeight('normal');
     range.setWrap(true);
-
+    fileData.forEach((formula, index) => {
+      const cell = mainSheet.getRange(startRow + index, 1);
+      cell.setFormula(formula[0]);
+      const linkedSheet = SpreadsheetApp.openByUrl(cell.getFormula().match(/"(.*?)"/)[1]).getActiveSheet();
+      if (linkedSheet.getRange('Z1').getValue() !== 'Formatted') {
+        setupAndColorSheet(linkedSheet);
+        linkedSheet.getRange('Z1').setValue('Formatted');
+      }
+    });
     const checkBoxRange = mainSheet.getRange(startRow, 2, checkBoxes.length, 1);
     checkBoxRange.insertCheckboxes();
   } else {
-    if (existingUrls.every(url => url === "")) { // Handle the case where there are no links yet
-      mainSheet.getRange('A2:A2').setValue('No new files found').setFontSize(10).setFontWeight('normal').setWrap(true);
-    }
+    mainSheet.getRange('A2:A2').setValue('No new files found').setFontSize(10).setFontWeight('normal').setWrap(true);
   }
 }
+
 
 function setupAndColorSheet(sheet) {
   if (sheet.getRange('Z1').getValue() === 'Formatted') return;  // Check if already formatted
@@ -135,7 +131,7 @@ function colorCheckboxes(sheet, lastRow) {
   range.setFontColors(colors);
 }
 
-function applyBoldAndRemoveCheckboxes(sheet) {
+function applyBoldAndRemoveCheckboxesEfficiently(sheet) {
   if (sheet.getRange('Z1').getValue() === 'Formatted') return;  // Check if already formatted
 
   const range = sheet.getDataRange();
