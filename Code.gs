@@ -228,7 +228,7 @@ function processQASheet(qaSheet, mainSheet, rowIndex) {
 
   // Prepare data to be written
   const currentDate = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd.MM.yy");
-  const outputText = `${currentDate}\n${totalQuestions} t ${greenQuestions} g\n${formattedPercentGreen}`;
+  const outputText = `${currentDate}\n${totalQuestions} questions\n${formattedPercentGreen} green`;
 
   // Write data to the next available column in the same row
   const targetCell = mainSheet.getRange(rowIndex, targetColumn);
