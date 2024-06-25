@@ -23,7 +23,10 @@ function formatRoadmapAndApplyFormatting() {
   const checkBoxes = [];
   const lastRow = mainSheet.getLastRow();
   const existingHyperlinks = lastRow > 1 ? mainSheet.getRange('A2:A' + lastRow).getFormulas() : [];
-  const existingUrls = existingHyperlinks.map(row => row[0].match(/"([^"]+)"/)[1]);
+  const existingUrls = existingHyperlinks.map(row => {
+    const match = row[0].match(/"([^"]+)"/);
+    return match ? match[1] : null;
+  }).filter(url => url !== null);
 
   while (files.hasNext()) {
     let file = files.next();
@@ -47,10 +50,13 @@ function formatRoadmapAndApplyFormatting() {
     fileData.forEach((formula, index) => {
       const cell = mainSheet.getRange(startRow + index, 1);
       cell.setFormula(formula[0]);
-      const linkedSheet = SpreadsheetApp.openByUrl(cell.getFormula().match(/"(.*?)"/)[1]).getActiveSheet();
-      if (linkedSheet.getRange('Z1').getValue() !== 'Formatted') {
-        setupAndColorSheet(linkedSheet);
-        linkedSheet.getRange('Z1').setValue('Formatted');
+      const formulaMatch = cell.getFormula().match(/"(.*?)"/);
+      if (formulaMatch) {
+        const linkedSheet = SpreadsheetApp.openByUrl(formulaMatch[1]).getActiveSheet();
+        if (linkedSheet.getRange('Z1').getValue() !== 'Formatted') {
+          setupAndColorSheet(linkedSheet);
+          linkedSheet.getRange('Z1').setValue('Formatted');
+        }
       }
     });
     const checkBoxRange = mainSheet.getRange(startRow, 2, checkBoxes.length, 1);
@@ -59,7 +65,7 @@ function formatRoadmapAndApplyFormatting() {
 }
 
 function setupAndColorSheet(sheet) {
-  if (sheet.getRange('Z1').getValue() === 'Formatted') return;  // Check if already formatted
+  if (sheet.getRange('Z1').getValue() === 'Formatted') return;
 
   const lastRow = sheet.getLastRow();
   const checkboxColumns = ['B', 'C', 'D', 'E'];
@@ -69,7 +75,7 @@ function setupAndColorSheet(sheet) {
   const contentRange = sheet.getRange(contentColumn + "1:" + contentColumn + lastRow);
   const destinationRange = sheet.getRange(destinationColumn + "1:" + destinationColumn + lastRow);
   contentRange.copyTo(destinationRange, SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
-  
+
   checkboxColumns.forEach(column => {
     const checkboxRange = sheet.getRange(column + "1:" + column + lastRow);
     checkboxRange.insertCheckboxes();
