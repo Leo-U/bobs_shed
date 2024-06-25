@@ -1,12 +1,12 @@
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('Uncle Bob')
-    .addItem('Prepare Documents', 'formatRoadmapAndApplyFormatting')
-    .addItem('Map Progress', 'countQuestions')
+    .addItem('Format Documents', 'formatDocuments')
+    .addItem('Chart Progress', 'chartProgress')
     .addToUi();
 }
 
-function formatRoadmapAndApplyFormatting() {
+function formatDocuments() {
   const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
   const file = DriveApp.getFileById(fileId);
@@ -39,7 +39,7 @@ function formatRoadmapAndApplyFormatting() {
     }
   }
 
-  mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Map progress?']]).setFontWeight('bold');
+  mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Chart Progress?']]).setFontWeight('bold').setFontSize(9);
   if (fileData.length > 0) {
     const startRow = existingUrls.length + 2;
     const range = mainSheet.getRange(startRow, 1, fileData.length, 1);
@@ -103,7 +103,7 @@ function setupAndColorSheet(sheet) {
   sheet.setConditionalFormatRules(rules);
 
   colorCheckboxes(sheet, lastRow);
-  applyBoldAndRemoveCheckboxesEfficiently(sheet);
+  applyBoldAndRemoveCheckboxes(sheet);
 }
 
 function colorCheckboxes(sheet, lastRow) {
@@ -134,7 +134,7 @@ function colorCheckboxes(sheet, lastRow) {
   range.setFontColors(colors);
 }
 
-function applyBoldAndRemoveCheckboxesEfficiently(sheet) {
+function applyBoldAndRemoveCheckboxes(sheet) {
   if (sheet.getRange('Z1').getValue() === 'Formatted') return;  // Check if already formatted
 
   const range = sheet.getDataRange();
@@ -169,7 +169,7 @@ function applyBoldAndRemoveCheckboxesEfficiently(sheet) {
   }
 }
 
-function countQuestions() {
+function chartProgress() {
   const ui = SpreadsheetApp.getUi();
   const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const rows = mainSheet.getDataRange().getValues();
@@ -192,7 +192,7 @@ function countQuestions() {
   });
 
   if (!anyProcessed) {
-    ui.alert('No Q-A sets selected or valid to count questions. Please check at least one and ensure they contain valid links.');
+    ui.alert('No Q-A sets selected to count questions. Please check at least one and ensure they contain valid links.');
   }
 }
 
