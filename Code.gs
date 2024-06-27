@@ -7,61 +7,58 @@ function onOpen() {
 }
 
 function formatDocuments() {
-  const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-  const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
-  const file = DriveApp.getFileById(fileId);
-  const folders = file.getParents();
-  const folder = folders.next();
-  const subFolders = folder.getFoldersByName('Q-A Sets');
+    const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
+    const file = DriveApp.getFileById(fileId);
+    const folders = file.getParents();
+    const folder = folders.next();
+    const subFolders = folder.getFoldersByName('Q-A Sets');
 
-  if (!subFolders.hasNext()) {
-    throw new Error('Subdirectory Q-A Sets not found in the current folder.');
-  }
-
-  const files = subFolders.next().getFiles();
-  const fileData = [];
-  const checkBoxes = [];
-  const lastRow = mainSheet.getLastRow();
-  const existingHyperlinks = lastRow > 1 ? mainSheet.getRange('A2:A' + lastRow).getFormulas() : [];
-  const existingUrls = existingHyperlinks.map(row => {
-    const match = row[0].match(/"([^"]+)"/);
-    return match ? match[1] : null;
-  }).filter(url => url !== null);
-
-  while (files.hasNext()) {
-    let file = files.next();
-    const url = file.getUrl();
-    const name = file.getName();
-    const hyperlinkFormula = `=HYPERLINK("${url}", "${name}")`;
-    if (!existingUrls.includes(url)) {
-      fileData.push([hyperlinkFormula]);
-      checkBoxes.push([true]);
+    if (!subFolders.hasNext()) {
+        throw new Error('Subdirectory Q-A Sets not found in the current folder.');
     }
-  }
 
-  mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Chart Progress?']]).setFontWeight('bold').setFontSize(9);
-  if (fileData.length > 0) {
-    const startRow = existingUrls.length + 2;
-    const range = mainSheet.getRange(startRow, 1, fileData.length, 1);
-    range.setValues(fileData);
-    range.setFontSize(10);
-    range.setFontWeight('normal');
-    range.setWrap(true);
-    fileData.forEach((formula, index) => {
-      const cell = mainSheet.getRange(startRow + index, 1);
-      cell.setFormula(formula[0]);
-      const formulaMatch = cell.getFormula().match(/"(.*?)"/);
-      if (formulaMatch) {
-        const linkedSheet = SpreadsheetApp.openByUrl(formulaMatch[1]).getActiveSheet();
-        if (linkedSheet.getRange('Z1').getValue() !== 'Formatted') {
-          setupAndColorSheet(linkedSheet);
-          linkedSheet.getRange('Z1').setValue('Formatted');
+    const {fileData, checkBoxes} = fetchFilesAndPrepareLinks(subFolders, mainSheet);
+
+    mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Chart Progress?']]).setFontWeight('bold').setFontSize(9);
+    if (fileData.length > 0) {
+        const startRow = mainSheet.getLastRow() + 1;
+        const range = mainSheet.getRange(startRow, 1, fileData.length, 1);
+        range.setValues(fileData);
+        range.setFontSize(10);
+        range.setFontWeight('normal');
+        range.setWrap(true);
+        fileData.forEach((formula, index) => {
+            const cell = mainSheet.getRange(startRow + index, 1);
+            cell.setFormula(formula[0]);
+        });
+        const checkBoxRange = mainSheet.getRange(startRow, 2, checkBoxes.length, 1);
+        checkBoxRange.insertCheckboxes();
+    }
+}
+
+function fetchFilesAndPrepareLinks(subFolders, mainSheet) {
+    const files = subFolders.next().getFiles();
+    const fileData = [];
+    const checkBoxes = [];
+    const lastRow = mainSheet.getLastRow();
+    const existingHyperlinks = lastRow > 1 ? mainSheet.getRange('A2:A' + lastRow).getFormulas() : [];
+    const existingUrls = existingHyperlinks.map(row => {
+        const match = row[0].match(/"([^"]+)"/);
+        return match ? match[1] : null;
+    }).filter(url => url !== null);
+
+    while (files.hasNext()) {
+        let file = files.next();
+        const url = file.getUrl();
+        const name = file.getName();
+        const hyperlinkFormula = `=HYPERLINK("${url}", "${name}")`;
+        if (!existingUrls.includes(url)) {
+            fileData.push([hyperlinkFormula]);
+            checkBoxes.push([true]);
         }
-      }
-    });
-    const checkBoxRange = mainSheet.getRange(startRow, 2, checkBoxes.length, 1);
-    checkBoxRange.insertCheckboxes();
-  }
+    }
+    return {fileData, checkBoxes};
 }
 
 function setupAndColorSheet(sheet) {
