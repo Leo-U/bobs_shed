@@ -109,7 +109,7 @@ function setupAndColorSheet(sheet) {
 function colorCheckboxes(sheet, lastRow) {
   if (sheet.getRange('Z1').getValue() === 'Formatted') return;  // Check if already formatted
 
-  var range = sheet.getRange("B1:D" + lastRow);
+  var range = sheet.getRange("B1:E" + lastRow);
   var values = range.getValues();
   var colors = range.getFontColors();
 
@@ -118,13 +118,16 @@ function colorCheckboxes(sheet, lastRow) {
       if (typeof values[i][j] === 'boolean') {
         switch(j) {
           case 0:
-            colors[i][j] = '#8fc08f';
+            colors[i][j] = '#8fc08f'; // Applies green to column B
             break;
           case 1:
-            colors[i][j] = '#E1C041';
+            colors[i][j] = '#E1C041'; // Applies yellow to column C
             break;
           case 2:
-            colors[i][j] = '#dd7e6b';
+            colors[i][j] = '#dd7e6b'; // Applies red to column D
+            break;
+          case 3:
+            colors[i][j] = '#000000'; // Explicitly set black (or any default) to column E
             break;
         }
       }
