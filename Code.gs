@@ -28,14 +28,25 @@ function formatDocuments() {
         range.setFontSize(10);
         range.setFontWeight('normal');
         range.setWrap(true);
+
         fileData.forEach((formula, index) => {
             const cell = mainSheet.getRange(startRow + index, 1);
             cell.setFormula(formula[0]);
+            
+            // Extract URL from formula and format the linked sheet
+            const formulaMatch = formula[0].match(/"([^"]+)"/);
+            if (formulaMatch) {
+                const linkedSheetUrl = formulaMatch[1];
+                const linkedSheet = SpreadsheetApp.openByUrl(linkedSheetUrl).getActiveSheet();
+                setupAndColorSheet(linkedSheet);
+            }
         });
+
         const checkBoxRange = mainSheet.getRange(startRow, 2, checkBoxes.length, 1);
         checkBoxRange.insertCheckboxes();
     }
 }
+
 
 function fetchFilesAndPrepareLinks(subFolders, mainSheet) {
     const files = subFolders.next().getFiles();
