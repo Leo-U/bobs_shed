@@ -47,7 +47,6 @@ function formatDocuments() {
     }
 }
 
-
 function fetchFilesAndPrepareLinks(subFolders, mainSheet) {
     const files = subFolders.next().getFiles();
     const fileData = [];
@@ -73,45 +72,50 @@ function fetchFilesAndPrepareLinks(subFolders, mainSheet) {
 }
 
 function setupAndColorSheet(sheet) {
-  if (sheet.getRange('Z1').getValue() === 'Formatted') return;
+    // Check for any checkbox (checked or unchecked) in the first five cells of column B.
+    var checkboxRange = sheet.getRange('B1:B5');
+    var checkboxValues = checkboxRange.getValues();
+    var containsCheckbox = checkboxValues.some(row => row[0] === true || row[0] === false); // Checks for true or false explicitly.
 
-  const lastRow = sheet.getLastRow();
-  const checkboxColumns = ['B', 'C', 'D', 'E'];
-  const contentColumn = 'C';
-  const destinationColumn = 'F';
+    if (containsCheckbox) return; // If any cell contains a checkbox (checked or unchecked), consider the sheet formatted and return.
 
-  const contentRange = sheet.getRange(contentColumn + "1:" + contentColumn + lastRow);
-  const destinationRange = sheet.getRange(destinationColumn + "1:" + destinationColumn + lastRow);
-  contentRange.copyTo(destinationRange, SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+    const lastRow = sheet.getLastRow();
+    const checkboxColumns = ['B', 'C', 'D', 'E'];
+    const contentColumn = 'C';
+    const destinationColumn = 'F';
 
-  checkboxColumns.forEach(column => {
-    const checkboxRange = sheet.getRange(column + "1:" + column + lastRow);
-    checkboxRange.insertCheckboxes();
-    sheet.setColumnWidth(column.charCodeAt(0) - 64, 50);
-  });
+    const contentRange = sheet.getRange(contentColumn + "1:" + contentColumn + lastRow);
+    const destinationRange = sheet.getRange(destinationColumn + "1:" + destinationColumn + lastRow);
+    contentRange.copyTo(destinationRange, SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
 
-  let rules = sheet.getConditionalFormatRules();
-  const colors = ['#8FC08F', '#FFF89A', '#dd7e6b'];
+    checkboxColumns.forEach(column => {
+        const checkboxRange = sheet.getRange(column + "1:" + column + lastRow);
+        checkboxRange.insertCheckboxes();
+        sheet.setColumnWidth(column.charCodeAt(0) - 64, 50);
+    });
 
-  checkboxColumns.forEach((column, index) => {
-    const rule = SpreadsheetApp.newConditionalFormatRule()
-      .whenFormulaSatisfied('=$' + column + '1=TRUE')
-      .setBackground(colors[index])
-      .setRanges([sheet.getRange("A1:A" + lastRow)])
-      .build();
-    rules.push(rule);
-  });
+    let rules = sheet.getConditionalFormatRules();
+    const colors = ['#8FC08F', '#FFF89A', '#dd7e6b'];
 
-  const fontColorRule = SpreadsheetApp.newConditionalFormatRule()
+    checkboxColumns.forEach((column, index) => {
+        const rule = SpreadsheetApp.newConditionalFormatRule()
+        .whenFormulaSatisfied('=$' + column + '1=TRUE')
+        .setBackground(colors[index])
+        .setRanges([sheet.getRange("A1:A" + lastRow)])
+        .build();
+        rules.push(rule);
+    });
+
+    const fontColorRule = SpreadsheetApp.newConditionalFormatRule()
     .whenFormulaSatisfied('=$E1=TRUE')
     .setFontColor("#FFFFFF")
     .setRanges([sheet.getRange(destinationColumn + "1:" + destinationColumn + lastRow)])
     .build();
-  rules.push(fontColorRule);
-  sheet.setConditionalFormatRules(rules);
+    rules.push(fontColorRule);
+    sheet.setConditionalFormatRules(rules);
 
-  colorCheckboxes(sheet, lastRow);
-  applyBoldAndRemoveCheckboxes(sheet);
+    colorCheckboxes(sheet, lastRow);
+    applyBoldAndRemoveCheckboxes(sheet);
 }
 
 function colorCheckboxes(sheet, lastRow) {
