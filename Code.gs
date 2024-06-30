@@ -83,9 +83,16 @@ function splitAndSaveSheets(concatenatedSheet, numberOfOriginalSheets) {
         const endRow = Math.min(startRow + rowsPerSheet - 1, totalRows);
         const sheetData = concatenatedSheet.getRange(startRow, 1, endRow - startRow + 1, concatenatedSheet.getLastColumn()).getValues();
         
-        const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(`Q-A Sheet ${i + 1}`);
-        newSheet.getRange(1, 1, sheetData.length, sheetData[0].length).setValues(sheetData);
-        copyAndPasteWithFormatting(concatenatedSheet, newSheet, startRow, sheetData.length, concatenatedSheet.getLastColumn());
+        Logger.log(`Creating new sheet for rows ${startRow} to ${endRow}`);
+        
+        const newSheetName = `Q-A Sheet ${i + 1}`;
+        try {
+            const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(newSheetName);
+            newSheet.getRange(1, 1, sheetData.length, sheetData[0].length).setValues(sheetData);
+            copyAndPasteWithFormatting(concatenatedSheet, newSheet, startRow, sheetData.length, concatenatedSheet.getLastColumn());
+        } catch (e) {
+            Logger.log(`Error creating or setting values in ${newSheetName}: ${e.message}`);
+        }
     }
 
     SpreadsheetApp.getActiveSpreadsheet().deleteSheet(concatenatedSheet); // Cleanup the concatenated sheet after splitting
