@@ -7,41 +7,49 @@ function onOpen() {
 }
 
 function formatDocuments() {
-    const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
-    const file = DriveApp.getFileById(fileId);
-    const folders = file.getParents();
-    const folder = folders.next();
-    const subFolders = folder.getFoldersByName('Q-A Sets');
+  const start = Date.now();
+  const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
+  const file = DriveApp.getFileById(fileId);
+  const folders = file.getParents();
+  const folder = folders.next();
+  const subFolders = folder.getFoldersByName('Q-A Sets');
 
-    if (!subFolders.hasNext()) {
-        throw new Error('Subdirectory Q-A Sets not found in the current folder.');
-    }
+  if (!subFolders.hasNext()) {
+      throw new Error('Subdirectory Q-A Sets not found in the current folder.');
+  }
 
-    const {fileData, checkBoxes, concatenatedData} = fetchFilesAndConcatenateData(subFolders, mainSheet);
+  const {fileData, checkBoxes, concatenatedData} = fetchFilesAndConcatenateData(subFolders, mainSheet);
 
-    mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Chart Progress?']]).setFontWeight('bold').setFontSize(9);
-    if (fileData.length > 0) {
-        const startRow = mainSheet.getLastRow() + 1;
-        const range = mainSheet.getRange(startRow, 1, fileData.length, 1);
-        range.setValues(fileData);
-        range.setFontSize(10);
-        range.setFontWeight('normal');
-        range.setWrap(true);
+  mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Chart Progress?']]).setFontWeight('bold').setFontSize(9);
+  if (fileData.length > 0) {
+      const startRow = mainSheet.getLastRow() + 1;
+      const range = mainSheet.getRange(startRow, 1, fileData.length, 1);
+      range.setValues(fileData);
+      range.setFontSize(10);
+      range.setFontWeight('normal');
+      range.setWrap(true);
 
-        fileData.forEach((formula, index) => {
-            const cell = mainSheet.getRange(startRow + index, 1);
-            cell.setFormula(formula[0]);
-        });
+      fileData.forEach((formula, index) => {
+          const cell = mainSheet.getRange(startRow + index, 1);
+          cell.setFormula(formula[0]);
+      });
 
-        const checkBoxRange = mainSheet.getRange(startRow, 2, checkBoxes.length, 1);
-        checkBoxRange.insertCheckboxes();
-    }
+      const checkBoxRange = mainSheet.getRange(startRow, 2, checkBoxes.length, 1);
+      checkBoxRange.insertCheckboxes();
+  }
 
-    const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
-    concatenatedSheet.getRange(1, 1, concatenatedData.length, concatenatedData[0].length).setValues(concatenatedData);
-    setupAndColorSheet(concatenatedSheet);
-    splitAndSaveSheets(concatenatedSheet, fileData.length); // Implement this to split and save sheets
+  const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
+  concatenatedSheet.getRange(1, 1, concatenatedData.length, concatenatedData[0].length).setValues(concatenatedData);
+  setupAndColorSheet(concatenatedSheet);
+  splitAndSaveSheets(concatenatedSheet, fileData.length); // Implement this to split and save sheets
+  
+  let elapsedTime = Date.now() - start; // Elapsed time in milliseconds
+  let totalSeconds = Math.floor(elapsedTime / 1000); // Total seconds
+  let minutes = Math.floor(totalSeconds / 60); // Minutes
+  let seconds = totalSeconds % 60; // Remaining seconds
+
+  console.log(`Time elapsed: ${minutes} min ${seconds} sec`);
 }
 
 function fetchFilesAndConcatenateData(subFolders, mainSheet) {
