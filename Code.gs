@@ -18,7 +18,7 @@ function formatDocuments() {
         throw new Error('Subdirectory Q-A Sets not found in the current folder.');
     }
 
-    const {fileData, checkBoxes} = fetchFilesAndPrepareLinks(subFolders, mainSheet);
+    const {fileData, checkBoxes, concatenatedData} = fetchFilesAndConcatenateData(subFolders, mainSheet);
 
     mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Chart Progress?']]).setFontWeight('bold').setFontSize(9);
     if (fileData.length > 0) {
@@ -32,22 +32,19 @@ function formatDocuments() {
         fileData.forEach((formula, index) => {
             const cell = mainSheet.getRange(startRow + index, 1);
             cell.setFormula(formula[0]);
-            
-            // Extract URL from formula and format the linked sheet
-            const formulaMatch = formula[0].match(/"([^"]+)"/);
-            if (formulaMatch) {
-                const linkedSheetUrl = formulaMatch[1];
-                const linkedSheet = SpreadsheetApp.openByUrl(linkedSheetUrl).getActiveSheet();
-                setupAndColorSheet(linkedSheet);
-            }
         });
 
         const checkBoxRange = mainSheet.getRange(startRow, 2, checkBoxes.length, 1);
         checkBoxRange.insertCheckboxes();
     }
+
+    const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
+    concatenatedSheet.getRange(1, 1, concatenatedData.length, concatenatedData[0].length).setValues(concatenatedData);
+    setupAndColorSheet(concatenatedSheet);
+    splitAndSaveSheets(concatenatedSheet, fileData.length); // Implement this to split and save sheets
 }
 
-function fetchFilesAndPrepareLinks(subFolders, mainSheet) {
+function fetchFilesAndConcatenateData(subFolders, mainSheet) {
     const files = subFolders.next().getFiles();
     const fileData = [];
     const checkBoxes = [];
@@ -58,6 +55,8 @@ function fetchFilesAndPrepareLinks(subFolders, mainSheet) {
         return match ? match[1] : null;
     }).filter(url => url !== null);
 
+    const concatenatedData = [];
+
     while (files.hasNext()) {
         let file = files.next();
         const url = file.getUrl();
@@ -66,18 +65,46 @@ function fetchFilesAndPrepareLinks(subFolders, mainSheet) {
         if (!existingUrls.includes(url)) {
             fileData.push([hyperlinkFormula]);
             checkBoxes.push([true]);
+
+            const linkedSheet = SpreadsheetApp.openByUrl(url).getActiveSheet();
+            const data = linkedSheet.getDataRange().getValues();
+            concatenatedData.push(...data); // Concatenate data from each file
         }
     }
-    return {fileData, checkBoxes};
+    return {fileData, checkBoxes, concatenatedData};
+}
+
+function splitAndSaveSheets(concatenatedSheet, numberOfOriginalSheets) {
+    const totalRows = concatenatedSheet.getLastRow();
+    const rowsPerSheet = Math.ceil(totalRows / numberOfOriginalSheets);
+
+    for (let i = 0; i < numberOfOriginalSheets; i++) {
+        const startRow = i * rowsPerSheet + 1;
+        const endRow = Math.min(startRow + rowsPerSheet - 1, totalRows);
+        const sheetData = concatenatedSheet.getRange(startRow, 1, endRow - startRow + 1, concatenatedSheet.getLastColumn()).getValues();
+        
+        const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(`Q-A Sheet ${i + 1}`);
+        newSheet.getRange(1, 1, sheetData.length, sheetData[0].length).setValues(sheetData);
+        copyAndPasteWithFormatting(concatenatedSheet, newSheet, startRow, sheetData.length, concatenatedSheet.getLastColumn());
+    }
+
+    SpreadsheetApp.getActiveSpreadsheet().deleteSheet(concatenatedSheet); // Cleanup the concatenated sheet after splitting
+}
+
+function copyAndPasteWithFormatting(sourceSheet, targetSheet, startRow, numRows, numCols) {
+    const sourceRange = sourceSheet.getRange(startRow, 1, numRows, numCols);
+    const targetRange = targetSheet.getRange(1, 1, numRows, numCols);
+    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_COLUMN_WIDTHS, false);
+    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATIONS, false);
 }
 
 function setupAndColorSheet(sheet) {
-    // Check for any checkbox (checked or unchecked) in the first five cells of column B.
     var checkboxRange = sheet.getRange('B1:B5');
     var checkboxValues = checkboxRange.getValues();
-    var containsCheckbox = checkboxValues.some(row => row[0] === true || row[0] === false); // Checks for true or false explicitly.
+    var containsCheckbox = checkboxValues.some(row => row[0] === true || row[0] === false);
 
-    if (containsCheckbox) return; // If any cell contains a checkbox (checked or unchecked), consider the sheet formatted and return.
+    if (containsCheckbox) return;
 
     const lastRow = sheet.getLastRow();
     const checkboxColumns = ['B', 'C', 'D', 'E'];
@@ -119,7 +146,7 @@ function setupAndColorSheet(sheet) {
 }
 
 function colorCheckboxes(sheet, lastRow) {
-  if (sheet.getRange('Z1').getValue() === 'Formatted') return;  // Check if already formatted
+  if (sheet.getRange('Z1').getValue() === 'Formatted') return;
 
   var range = sheet.getRange("B1:E" + lastRow);
   var values = range.getValues();
@@ -150,7 +177,7 @@ function colorCheckboxes(sheet, lastRow) {
 }
 
 function applyBoldAndRemoveCheckboxes(sheet) {
-  if (sheet.getRange('Z1').getValue() === 'Formatted') return;  // Check if already formatted
+  if (sheet.getRange('Z1').getValue() === 'Formatted') return;
 
   const range = sheet.getDataRange();
   const values = range.getValues();
@@ -192,13 +219,12 @@ function chartProgress() {
   let anyProcessed = false;
 
   rows.forEach((row, index) => {
-    // Check if the checkbox in column B is checked
     if (row[1] === true) {
       const cell = mainSheet.getRange('A' + (index + 1));
       const richText = cell.getRichTextValue();
       const linkUrl = richText.getLinkUrl();
 
-      if (linkUrl) { // Ensure both checkbox is checked and hyperlink is present
+      if (linkUrl) {
         anyProcessed = true;
         const linkedSheet = SpreadsheetApp.openByUrl(linkUrl).getActiveSheet();
         processQASheet(linkedSheet, mainSheet, index + 1);
@@ -216,22 +242,18 @@ function processQASheet(qaSheet, mainSheet, rowIndex) {
   let totalQuestions = 0;
   let greenQuestions = 0;
 
-  // Iterate over each row in the data from the Q-A sheet
   data.forEach(row => {
-    // Let's assume that any non-empty value in column B counts as a question
     if (row[1] !== "" && row[1] !== undefined && row[1] !== null) {
-      totalQuestions++; // Count every non-empty entry as a question
-      if (row[1] === true) { // Specifically count 'true' values as 'green' questions
+      totalQuestions++;
+      if (row[1] === true) {
         greenQuestions++;
       }
     }
   });
 
-  // Calculate percentage of green questions
   const percentGreen = totalQuestions > 0 ? (greenQuestions / totalQuestions * 100) : 0;
   const formattedPercentGreen = percentGreen.toFixed(0) + '%';
 
-  // Determine the color based on the percentage green
   var color = '';
   if (percentGreen >= 90) color = '#93c47d'; // Green
   else if (percentGreen >= 80) color = '#b6d7a8'; // Light Green
@@ -239,20 +261,17 @@ function processQASheet(qaSheet, mainSheet, rowIndex) {
   else if (percentGreen >= 60) color = '#f6b26b'; // Orange
   else color = '#dd7e6b'; // Red
 
-  // Find the first empty cell in the specified row to place the new data
   const rowRange = mainSheet.getRange(rowIndex, 3, 1, mainSheet.getLastColumn());
   const rowValues = rowRange.getValues()[0];
   let targetColumn = rowValues.findIndex(value => !value) + 3; // +3 because range starts at column C
-  if (targetColumn < 3) { // Correct handling if no empty cell is found
+  if (targetColumn < 3) {
     targetColumn = mainSheet.getLastColumn() + 1;
   }
 
-  // Prepare data to be written
   const currentDate = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd.MM.yy");
   const outputText = `${currentDate}\n${totalQuestions} questions\n${formattedPercentGreen} green`;
 
-  // Write data to the next available column in the same row
   const targetCell = mainSheet.getRange(rowIndex, targetColumn);
   targetCell.setValue(outputText);
-  targetCell.setBackground(color); // Set the background color based on % Green
+  targetCell.setBackground(color);
 }
