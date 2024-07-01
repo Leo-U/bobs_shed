@@ -19,6 +19,8 @@ function formatDocuments() {
       throw new Error('Subdirectory Q-A Sets not found in the current folder.');
   }
 
+  removeAllDataValidations(); // Remove all data validations
+
   const {fileData, checkBoxes, concatenatedData} = fetchFilesAndConcatenateData(subFolders, mainSheet);
 
   mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Chart Progress?']]).setFontWeight('bold').setFontSize(9);
@@ -42,122 +44,129 @@ function formatDocuments() {
   const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
   concatenatedSheet.getRange(1, 1, concatenatedData.length, concatenatedData[0].length).setValues(concatenatedData);
   setupAndColorSheet(concatenatedSheet);
-  splitAndSaveSheets(concatenatedSheet, fileData.length); // Implement this to split and save sheets
+  splitAndSaveSheets(concatenatedSheet, fileData.length);
   
-  let elapsedTime = Date.now() - start; // Elapsed time in milliseconds
-  let totalSeconds = Math.floor(elapsedTime / 1000); // Total seconds
-  let minutes = Math.floor(totalSeconds / 60); // Minutes
-  let seconds = totalSeconds % 60; // Remaining seconds
+  let elapsedTime = Date.now() - start;
+  let totalSeconds = Math.floor(elapsedTime / 1000);
+  let minutes = Math.floor(totalSeconds / 60);
+  let seconds = totalSeconds % 60;
 
   console.log(`Time elapsed: ${minutes} min ${seconds} sec`);
 }
 
+function removeAllDataValidations() {
+  const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+  sheets.forEach(sheet => {
+    const range = sheet.getDataRange();
+    range.clearDataValidations();
+  });
+}
+
 function fetchFilesAndConcatenateData(subFolders, mainSheet) {
-    const files = subFolders.next().getFiles();
-    const fileData = [];
-    const checkBoxes = [];
-    const lastRow = mainSheet.getLastRow();
-    const existingHyperlinks = lastRow > 1 ? mainSheet.getRange('A2:A' + lastRow).getFormulas() : [];
-    const existingUrls = existingHyperlinks.map(row => {
-        const match = row[0].match(/"([^"]+)"/);
-        return match ? match[1] : null;
-    }).filter(url => url !== null);
+  const files = subFolders.next().getFiles();
+  const fileData = [];
+  const checkBoxes = [];
+  const lastRow = mainSheet.getLastRow();
+  const existingHyperlinks = lastRow > 1 ? mainSheet.getRange('A2:A' + lastRow).getFormulas() : [];
+  const existingUrls = existingHyperlinks.map(row => {
+      const match = row[0].match(/"([^"]+)"/);
+      return match ? match[1] : null;
+  }).filter(url => url !== null);
 
-    const concatenatedData = [];
+  const concatenatedData = [];
 
-    while (files.hasNext()) {
-        let file = files.next();
-        const url = file.getUrl();
-        const name = file.getName();
-        const hyperlinkFormula = `=HYPERLINK("${url}", "${name}")`;
-        if (!existingUrls.includes(url)) {
-            fileData.push([hyperlinkFormula]);
-            checkBoxes.push([true]);
+  while (files.hasNext()) {
+      let file = files.next();
+      const url = file.getUrl();
+      const name = file.getName();
+      const hyperlinkFormula = `=HYPERLINK("${url}", "${name}")`;
+      if (!existingUrls.includes(url)) {
+          fileData.push([hyperlinkFormula]);
+          checkBoxes.push([true]);
 
-            const linkedSheet = SpreadsheetApp.openByUrl(url).getActiveSheet();
-            const data = linkedSheet.getDataRange().getValues();
-            concatenatedData.push(...data); // Concatenate data from each file
-        }
-    }
-    return {fileData, checkBoxes, concatenatedData};
+          const linkedSheet = SpreadsheetApp.openByUrl(url).getActiveSheet();
+          const data = linkedSheet.getDataRange().getValues();
+          concatenatedData.push(...data); // Concatenate data from each file
+      }
+  }
+  return {fileData, checkBoxes, concatenatedData};
 }
 
 function splitAndSaveSheets(concatenatedSheet, numberOfOriginalSheets) {
-    const totalRows = concatenatedSheet.getLastRow();
-    const rowsPerSheet = Math.ceil(totalRows / numberOfOriginalSheets);
+  const totalRows = concatenatedSheet.getLastRow();
+  const rowsPerSheet = Math.ceil(totalRows / numberOfOriginalSheets);
 
-    for (let i = 0; i < numberOfOriginalSheets; i++) {
-        const startRow = i * rowsPerSheet + 1;
-        const endRow = Math.min(startRow + rowsPerSheet - 1, totalRows);
-        const sheetData = concatenatedSheet.getRange(startRow, 1, endRow - startRow + 1, concatenatedSheet.getLastColumn()).getValues();
-        
-        Logger.log(`Creating new sheet for rows ${startRow} to ${endRow}`);
-        
-        const newSheetName = `Q-A Sheet ${i + 1}`;
-        try {
-            const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(newSheetName);
-            newSheet.getRange(1, 1, sheetData.length, sheetData[0].length).setValues(sheetData);
-            copyAndPasteWithFormatting(concatenatedSheet, newSheet, startRow, sheetData.length, concatenatedSheet.getLastColumn());
-        } catch (e) {
-            Logger.log(`Error creating or setting values in ${newSheetName}: ${e.message}`);
-        }
-    }
+  for (let i = 0; i < numberOfOriginalSheets; i++) {
+      const startRow = i * rowsPerSheet + 1;
+      const endRow = Math.min(startRow + rowsPerSheet - 1, totalRows);
+      const sheetData = concatenatedSheet.getRange(startRow, 1, endRow - startRow + 1, concatenatedSheet.getLastColumn()).getValues();
+      
+      Logger.log(`Creating new sheet for rows ${startRow} to ${endRow}`);
+      
+      const newSheetName = `Q-A Sheet ${i + 1}`;
+      try {
+          const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(newSheetName);
+          newSheet.getRange(1, 1, sheetData.length, sheetData[0].length).setValues(sheetData);
+          copyAndPasteWithFormatting(concatenatedSheet, newSheet, startRow, sheetData.length, concatenatedSheet.getLastColumn());
+      } catch (e) {
+          Logger.log(`Error creating or setting values in ${newSheetName}: ${e.message}`);
+      }
+  }
 
-    SpreadsheetApp.getActiveSpreadsheet().deleteSheet(concatenatedSheet); // Cleanup the concatenated sheet after splitting
+  SpreadsheetApp.getActiveSpreadsheet().deleteSheet(concatenatedSheet); // Cleanup the concatenated sheet after splitting
 }
 
 function copyAndPasteWithFormatting(sourceSheet, targetSheet, startRow, numRows, numCols) {
-    const sourceRange = sourceSheet.getRange(startRow, 1, numRows, numCols);
-    const targetRange = targetSheet.getRange(1, 1, numRows, numCols);
-    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
-    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_COLUMN_WIDTHS, false);
-    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATIONS, false);
+  const sourceRange = sourceSheet.getRange(startRow, 1, numRows, numCols);
+  const targetRange = targetSheet.getRange(1, 1, numRows, numCols);
+  sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+  sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_COLUMN_WIDTHS, false);
 }
 
 function setupAndColorSheet(sheet) {
-    var checkboxRange = sheet.getRange('B1:B5');
-    var checkboxValues = checkboxRange.getValues();
-    var containsCheckbox = checkboxValues.some(row => row[0] === true || row[0] === false);
+  var checkboxRange = sheet.getRange('B1:B5');
+  var checkboxValues = checkboxRange.getValues();
+  var containsCheckbox = checkboxValues.some(row => row[0] === true || row[0] === false);
 
-    if (containsCheckbox) return;
+  if (containsCheckbox) return;
 
-    const lastRow = sheet.getLastRow();
-    const checkboxColumns = ['B', 'C', 'D', 'E'];
-    const contentColumn = 'C';
-    const destinationColumn = 'F';
+  const lastRow = sheet.getLastRow();
+  const checkboxColumns = ['B', 'C', 'D', 'E'];
+  const contentColumn = 'C';
+  const destinationColumn = 'F';
 
-    const contentRange = sheet.getRange(contentColumn + "1:" + contentColumn + lastRow);
-    const destinationRange = sheet.getRange(destinationColumn + "1:" + destinationColumn + lastRow);
-    contentRange.copyTo(destinationRange, SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
+  const contentRange = sheet.getRange(contentColumn + "1:" + contentColumn + lastRow);
+  const destinationRange = sheet.getRange(destinationColumn + "1:" + destinationColumn + lastRow);
+  contentRange.copyTo(destinationRange, SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
 
-    checkboxColumns.forEach(column => {
-        const checkboxRange = sheet.getRange(column + "1:" + column + lastRow);
-        checkboxRange.insertCheckboxes();
-        sheet.setColumnWidth(column.charCodeAt(0) - 64, 50);
-    });
+  checkboxColumns.forEach(column => {
+      const checkboxRange = sheet.getRange(column + "1:" + column + lastRow);
+      checkboxRange.insertCheckboxes();
+      sheet.setColumnWidth(column.charCodeAt(0) - 64, 50);
+  });
 
-    let rules = sheet.getConditionalFormatRules();
-    const colors = ['#8FC08F', '#FFF89A', '#dd7e6b'];
+  let rules = sheet.getConditionalFormatRules();
+  const colors = ['#8FC08F', '#FFF89A', '#dd7e6b'];
 
-    checkboxColumns.forEach((column, index) => {
-        const rule = SpreadsheetApp.newConditionalFormatRule()
-        .whenFormulaSatisfied('=$' + column + '1=TRUE')
-        .setBackground(colors[index])
-        .setRanges([sheet.getRange("A1:A" + lastRow)])
-        .build();
-        rules.push(rule);
-    });
+  checkboxColumns.forEach((column, index) => {
+      const rule = SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=$' + column + '1=TRUE')
+      .setBackground(colors[index])
+      .setRanges([sheet.getRange("A1:A" + lastRow)])
+      .build();
+      rules.push(rule);
+  });
 
-    const fontColorRule = SpreadsheetApp.newConditionalFormatRule()
-    .whenFormulaSatisfied('=$E1=TRUE')
-    .setFontColor("#FFFFFF")
-    .setRanges([sheet.getRange(destinationColumn + "1:" + destinationColumn + lastRow)])
-    .build();
-    rules.push(fontColorRule);
-    sheet.setConditionalFormatRules(rules);
+  const fontColorRule = SpreadsheetApp.newConditionalFormatRule()
+  .whenFormulaSatisfied('=$E1=TRUE')
+  .setFontColor("#FFFFFF")
+  .setRanges([sheet.getRange(destinationColumn + "1:" + destinationColumn + lastRow)])
+  .build();
+  rules.push(fontColorRule);
+  sheet.setConditionalFormatRules(rules);
 
-    colorCheckboxes(sheet, lastRow);
-    applyBoldAndRemoveCheckboxes(sheet);
+  colorCheckboxes(sheet, lastRow);
+  applyBoldAndRemoveCheckboxes(sheet);
 }
 
 function colorCheckboxes(sheet, lastRow) {
