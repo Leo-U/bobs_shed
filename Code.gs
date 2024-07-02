@@ -200,19 +200,24 @@ function chartProgress() {
   const ui = SpreadsheetApp.getUi();
   const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const rows = mainSheet.getDataRange().getValues();
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
 
   let anyProcessed = false;
 
   rows.forEach((row, index) => {
-    if (row[1] === true) {
+    if (row[1] === true) { // Check if checkbox is ticked
       const cell = mainSheet.getRange('A' + (index + 1));
       const richText = cell.getRichTextValue();
-      const linkUrl = richText.getLinkUrl();
+      const linkUrl = richText ? richText.getLinkUrl() : null;
 
       if (linkUrl) {
-        anyProcessed = true;
-        const linkedSheet = SpreadsheetApp.openByUrl(linkUrl).getActiveSheet();
-        processQASheet(linkedSheet, mainSheet, index + 1);
+        const sheetId = getSheetIdFromUrl(linkUrl);
+        const linkedSheet = getSheetById(spreadsheet, sheetId);
+
+        if (linkedSheet) {
+          anyProcessed = true;
+          processQASheet(linkedSheet, mainSheet, index + 1);
+        }
       }
     }
   });
@@ -222,12 +227,29 @@ function chartProgress() {
   }
 }
 
+function getSheetIdFromUrl(url) {
+  const regex = /gid=(\d+)/;
+  const matches = url.match(regex);
+  return matches ? parseInt(matches[1], 10) : null;
+}
+
+function getSheetById(spreadsheet, sheetId) {
+  const sheets = spreadsheet.getSheets();
+  for (const sheet of sheets) {
+    if (sheet.getSheetId() === sheetId) {
+      return sheet;
+    }
+  }
+  return null;
+}
+
 function processQASheet(qaSheet, mainSheet, rowIndex) {
   const data = qaSheet.getDataRange().getValues();
   let totalQuestions = 0;
   let greenQuestions = 0;
 
   data.forEach(row => {
+    // Assuming column B is used for marking green
     if (row[1] !== "" && row[1] !== undefined && row[1] !== null) {
       totalQuestions++;
       if (row[1] === true) {
@@ -241,6 +263,7 @@ function processQASheet(qaSheet, mainSheet, rowIndex) {
 
   const color = getColorBasedOnPercentage(percentGreen);
 
+  // Find the next available column in the main sheet for updating progress
   const rowRange = mainSheet.getRange(rowIndex, 3, 1, mainSheet.getLastColumn());
   const rowValues = rowRange.getValues()[0];
   let targetColumn = rowValues.findIndex(value => !value) + 3; // +3 because range starts at column C
