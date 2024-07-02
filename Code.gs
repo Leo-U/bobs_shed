@@ -20,12 +20,12 @@ function formatDocuments() {
 
   removeAllDataValidations();
 
-  const { concatenatedData, numberOfFiles } = fetchFilesAndConcatenateData(subFolders);
+  const { concatenatedData, fileNames } = fetchFilesAndConcatenateData(subFolders);
 
   const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
   concatenatedSheet.getRange(1, 1, concatenatedData.length, concatenatedData[0].length).setValues(concatenatedData);
   setupAndColorSheet(concatenatedSheet);
-  const newSheetLinks = splitAndSaveSheets(concatenatedSheet, numberOfFiles);
+  const newSheetLinks = splitAndSaveSheets(concatenatedSheet, fileNames);
 
   createListOfLinks(mainSheet, newSheetLinks);
 
@@ -47,31 +47,31 @@ function removeAllDataValidations() {
 function fetchFilesAndConcatenateData(subFolders) {
   const files = subFolders.next().getFiles();
   const concatenatedData = [];
-  let numberOfFiles = 0;
+  const fileNames = [];
 
   while (files.hasNext()) {
-    numberOfFiles++;
     const file = files.next();
+    fileNames.push(file.getName());
     const linkedSheet = SpreadsheetApp.openByUrl(file.getUrl()).getActiveSheet();
     const data = linkedSheet.getDataRange().getValues();
     concatenatedData.push(...data);
   }
 
-  return { concatenatedData, numberOfFiles };
+  return { concatenatedData, fileNames };
 }
 
-function splitAndSaveSheets(concatenatedSheet, numberOfFiles) {
+function splitAndSaveSheets(concatenatedSheet, fileNames) {
   const totalRows = concatenatedSheet.getLastRow();
-  const rowsPerSheet = Math.ceil(totalRows / numberOfFiles);
+  const rowsPerSheet = Math.ceil(totalRows / fileNames.length);
 
   const newSheetLinks = [];
 
-  for (let i = 0; i < numberOfFiles; i++) {
+  for (let i = 0; i < fileNames.length; i++) {
     const startRow = i * rowsPerSheet + 1;
     const endRow = Math.min(startRow + rowsPerSheet - 1, totalRows);
     const sheetData = concatenatedSheet.getRange(startRow, 1, endRow - startRow + 1, concatenatedSheet.getLastColumn()).getValues();
 
-    const newSheetName = `Q-A Sheet ${i + 1}`;
+    const newSheetName = fileNames[i];
     const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(newSheetName);
     newSheet.getRange(1, 1, sheetData.length, sheetData[0].length).setValues(sheetData);
     copyAndPasteWithFormatting(concatenatedSheet, newSheet, startRow, sheetData.length, concatenatedSheet.getLastColumn());
