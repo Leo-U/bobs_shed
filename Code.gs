@@ -20,28 +20,14 @@ function formatDocuments() {
 
   removeAllDataValidations();
 
-  const { fileData, checkBoxes, concatenatedData } = fetchFilesAndConcatenateData(subFolders, mainSheet);
-
-  mainSheet.getRange('A1:B1').setValues([['Q-A sets', 'Chart Progress?']]).setFontWeight('bold').setFontSize(9);
-  if (fileData.length > 0) {
-    const startRow = mainSheet.getLastRow() + 1;
-    const range = mainSheet.getRange(startRow, 1, fileData.length, 1);
-    range.setValues(fileData);
-    range.setFontSize(10);
-    range.setFontWeight('normal');
-    range.setWrap(true);
-
-    fileData.forEach((formula, index) => {
-      mainSheet.getRange(startRow + index, 1).setFormula(formula[0]);
-    });
-
-    mainSheet.getRange(startRow, 2, checkBoxes.length, 1).insertCheckboxes();
-  }
+  const { concatenatedData, numberOfFiles } = fetchFilesAndConcatenateData(subFolders);
 
   const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
   concatenatedSheet.getRange(1, 1, concatenatedData.length, concatenatedData[0].length).setValues(concatenatedData);
   setupAndColorSheet(concatenatedSheet);
-  splitAndSaveSheets(concatenatedSheet, fileData.length);
+  const newSheetLinks = splitAndSaveSheets(concatenatedSheet, numberOfFiles);
+
+  createListOfLinks(mainSheet, newSheetLinks);
 
   const elapsedTime = Date.now() - start;
   const totalSeconds = Math.floor(elapsedTime / 1000);
@@ -58,58 +44,44 @@ function removeAllDataValidations() {
   });
 }
 
-function fetchFilesAndConcatenateData(subFolders, mainSheet) {
+function fetchFilesAndConcatenateData(subFolders) {
   const files = subFolders.next().getFiles();
-  const fileData = [];
-  const checkBoxes = [];
-  const lastRow = mainSheet.getLastRow();
-  const existingHyperlinks = lastRow > 1 ? mainSheet.getRange('A2:A' + lastRow).getFormulas() : [];
-  const existingUrls = existingHyperlinks.map(row => {
-    const match = row[0].match(/"([^"]+)"/);
-    return match ? match[1] : null;
-  }).filter(url => url !== null);
-
   const concatenatedData = [];
+  let numberOfFiles = 0;
 
   while (files.hasNext()) {
+    numberOfFiles++;
     const file = files.next();
-    const url = file.getUrl();
-    const name = file.getName();
-    const hyperlinkFormula = `=HYPERLINK("${url}", "${name}")`;
-
-    if (!existingUrls.includes(url)) {
-      fileData.push([hyperlinkFormula]);
-      checkBoxes.push([true]);
-
-      const linkedSheet = SpreadsheetApp.openByUrl(url).getActiveSheet();
-      const data = linkedSheet.getDataRange().getValues();
-      concatenatedData.push(...data);
-    }
+    const linkedSheet = SpreadsheetApp.openByUrl(file.getUrl()).getActiveSheet();
+    const data = linkedSheet.getDataRange().getValues();
+    concatenatedData.push(...data);
   }
 
-  return { fileData, checkBoxes, concatenatedData };
+  return { concatenatedData, numberOfFiles };
 }
 
-function splitAndSaveSheets(concatenatedSheet, numberOfOriginalSheets) {
+function splitAndSaveSheets(concatenatedSheet, numberOfFiles) {
   const totalRows = concatenatedSheet.getLastRow();
-  const rowsPerSheet = Math.ceil(totalRows / numberOfOriginalSheets);
+  const rowsPerSheet = Math.ceil(totalRows / numberOfFiles);
 
-  for (let i = 0; i < numberOfOriginalSheets; i++) {
+  const newSheetLinks = [];
+
+  for (let i = 0; i < numberOfFiles; i++) {
     const startRow = i * rowsPerSheet + 1;
     const endRow = Math.min(startRow + rowsPerSheet - 1, totalRows);
     const sheetData = concatenatedSheet.getRange(startRow, 1, endRow - startRow + 1, concatenatedSheet.getLastColumn()).getValues();
 
     const newSheetName = `Q-A Sheet ${i + 1}`;
-    try {
-      const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(newSheetName);
-      newSheet.getRange(1, 1, sheetData.length, sheetData[0].length).setValues(sheetData);
-      copyAndPasteWithFormatting(concatenatedSheet, newSheet, startRow, sheetData.length, concatenatedSheet.getLastColumn());
-    } catch (e) {
-      Logger.log(`Error creating or setting values in ${newSheetName}: ${e.message}`);
-    }
+    const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(newSheetName);
+    newSheet.getRange(1, 1, sheetData.length, sheetData[0].length).setValues(sheetData);
+    copyAndPasteWithFormatting(concatenatedSheet, newSheet, startRow, sheetData.length, concatenatedSheet.getLastColumn());
+
+    const newSheetUrl = newSheet.getParent().getUrl() + "#gid=" + newSheet.getSheetId();
+    newSheetLinks.push({ name: newSheetName, url: newSheetUrl });
   }
 
   SpreadsheetApp.getActiveSpreadsheet().deleteSheet(concatenatedSheet);
+  return newSheetLinks;
 }
 
 function copyAndPasteWithFormatting(sourceSheet, targetSheet, startRow, numRows, numCols) {
@@ -120,12 +92,6 @@ function copyAndPasteWithFormatting(sourceSheet, targetSheet, startRow, numRows,
 }
 
 function setupAndColorSheet(sheet) {
-  const checkboxRange = sheet.getRange('B1:B5');
-  const checkboxValues = checkboxRange.getValues();
-  const containsCheckbox = checkboxValues.some(row => row[0] === true || row[0] === false);
-
-  if (containsCheckbox) return;
-
   const lastRow = sheet.getLastRow();
   const checkboxColumns = ['B', 'C', 'D', 'E'];
   const contentColumn = 'C';
@@ -163,8 +129,6 @@ function setupAndColorSheet(sheet) {
 }
 
 function colorCheckboxes(sheet, lastRow) {
-  if (sheet.getRange('Z1').getValue() === 'Formatted') return;
-
   const range = sheet.getRange("B1:E" + lastRow);
   const values = range.getValues();
   const colors = range.getFontColors();
@@ -194,8 +158,6 @@ function colorCheckboxes(sheet, lastRow) {
 }
 
 function applyBoldAndRemoveCheckboxes(sheet) {
-  if (sheet.getRange('Z1').getValue() === 'Formatted') return;
-
   const range = sheet.getDataRange();
   const values = range.getValues();
 
@@ -223,6 +185,15 @@ function applyBoldAndRemoveCheckboxes(sheet) {
     rangeList.clearContent();
     rangeList.clearDataValidations();
   }
+}
+
+function createListOfLinks(mainSheet, newSheetLinks) {
+  const lastRow = mainSheet.getLastRow() + 1;
+  const fileData = newSheetLinks.map(link => [`=HYPERLINK("${link.url}", "${link.name}")`]);
+
+  mainSheet.getRange(lastRow, 1, fileData.length, 1).setValues(fileData).setFontSize(10).setFontWeight('normal').setWrap(true);
+
+  mainSheet.getRange(lastRow, 2, fileData.length, 1).insertCheckboxes();
 }
 
 function chartProgress() {
