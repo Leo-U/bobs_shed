@@ -25,9 +25,9 @@ function formatDocuments() {
   const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
   concatenatedSheet.getRange(1, 1, concatenatedData.length, concatenatedData[0].length).setValues(concatenatedData);
   setupAndColorSheet(concatenatedSheet);
-  const newSheetLinks = splitAndSaveSheets(concatenatedSheet, fileNames);
+  const newSheetNames = splitAndSaveSheets(concatenatedSheet, fileNames);
 
-  createListOfLinks(mainSheet, newSheetLinks);
+  createListOfSheetNames(mainSheet, newSheetNames);
 
   const elapsedTime = Date.now() - start;
   const totalSeconds = Math.floor(elapsedTime / 1000);
@@ -64,7 +64,7 @@ function splitAndSaveSheets(concatenatedSheet, fileNames) {
   const totalRows = concatenatedSheet.getLastRow();
   const rowsPerSheet = Math.ceil(totalRows / fileNames.length);
 
-  const newSheetLinks = [];
+  const newSheetNames = [];
 
   for (let i = 0; i < fileNames.length; i++) {
     const startRow = i * rowsPerSheet + 1;
@@ -76,12 +76,11 @@ function splitAndSaveSheets(concatenatedSheet, fileNames) {
     newSheet.getRange(1, 1, sheetData.length, sheetData[0].length).setValues(sheetData);
     copyAndPasteWithFormatting(concatenatedSheet, newSheet, startRow, sheetData.length, concatenatedSheet.getLastColumn());
 
-    const newSheetUrl = newSheet.getParent().getUrl() + "#gid=" + newSheet.getSheetId();
-    newSheetLinks.push({ name: newSheetName, url: newSheetUrl });
+    newSheetNames.push(newSheetName);
   }
 
   SpreadsheetApp.getActiveSpreadsheet().deleteSheet(concatenatedSheet);
-  return newSheetLinks;
+  return newSheetNames;
 }
 
 function copyAndPasteWithFormatting(sourceSheet, targetSheet, startRow, numRows, numCols) {
@@ -187,9 +186,9 @@ function applyBoldAndRemoveCheckboxes(sheet) {
   }
 }
 
-function createListOfLinks(mainSheet, newSheetLinks) {
+function createListOfSheetNames(mainSheet, newSheetNames) {
   const lastRow = mainSheet.getLastRow() + 1;
-  const fileData = newSheetLinks.map(link => [`=HYPERLINK("${link.url}", "${link.name}")`]);
+  const fileData = newSheetNames.map(name => [name]);
 
   mainSheet.getRange(lastRow, 1, fileData.length, 1).setValues(fileData).setFontSize(10).setFontWeight('normal').setWrap(true);
 
@@ -206,41 +205,19 @@ function chartProgress() {
 
   rows.forEach((row, index) => {
     if (row[1] === true) { // Check if checkbox is ticked
-      const cell = mainSheet.getRange('A' + (index + 1));
-      const richText = cell.getRichTextValue();
-      const linkUrl = richText ? richText.getLinkUrl() : null;
+      const sheetName = row[0];
+      const linkedSheet = spreadsheet.getSheetByName(sheetName);
 
-      if (linkUrl) {
-        const sheetId = getSheetIdFromUrl(linkUrl);
-        const linkedSheet = getSheetById(spreadsheet, sheetId);
-
-        if (linkedSheet) {
-          anyProcessed = true;
-          processQASheet(linkedSheet, mainSheet, index + 1);
-        }
+      if (linkedSheet) {
+        anyProcessed = true;
+        processQASheet(linkedSheet, mainSheet, index + 1);
       }
     }
   });
 
   if (!anyProcessed) {
-    ui.alert('No Q-A sets selected to count questions. Please check at least one and ensure they contain valid links.');
+    ui.alert('No Q-A sets selected to count questions. Please check at least one and ensure they contain valid sheet names.');
   }
-}
-
-function getSheetIdFromUrl(url) {
-  const regex = /gid=(\d+)/;
-  const matches = url.match(regex);
-  return matches ? parseInt(matches[1], 10) : null;
-}
-
-function getSheetById(spreadsheet, sheetId) {
-  const sheets = spreadsheet.getSheets();
-  for (const sheet of sheets) {
-    if (sheet.getSheetId() === sheetId) {
-      return sheet;
-    }
-  }
-  return null;
 }
 
 function processQASheet(qaSheet, mainSheet, rowIndex) {
