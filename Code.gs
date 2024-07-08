@@ -7,6 +7,18 @@ function onOpen() {
 }
 
 function formatDocuments() {
+  const scriptProperties = PropertiesService.getScriptProperties();
+  const formattedFlag = scriptProperties.getProperty('formattedFlag');
+
+  if (formattedFlag) {
+    const ui = SpreadsheetApp.getUi();
+    const response = ui.alert('Reformat Warning', 'Formatting the documents again will corrupt any already-formatted sheets. Are you sure you want to reformat?', ui.ButtonSet.YES_NO);
+
+    if (response != ui.Button.YES) {
+      return; // Exit if user does not confirm
+    }
+  }
+
   const start = Date.now();
   const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
@@ -28,6 +40,8 @@ function formatDocuments() {
   const newSheetNames = splitAndSaveSheets(concatenatedSheet, fileNames);
 
   createListOfSheetNames(mainSheet, newSheetNames);
+
+  scriptProperties.setProperty('formattedFlag', 'true');
 
   const elapsedTime = Date.now() - start;
   const totalSeconds = Math.floor(elapsedTime / 1000);
