@@ -93,7 +93,7 @@ function copyAndPasteWithFormatting(sourceSheet, targetSheet, startRow, numRows,
 function setupAndColorSheet(sheet) {
   const lastRow = sheet.getLastRow();
   const checkboxColumns = ['B', 'C', 'D', 'E'];
-  const contentColumn = 'C';
+  const contentColumn = 'B';
   const destinationColumn = 'F';
 
   sheet.getRange(contentColumn + "1:" + contentColumn + lastRow).copyTo(sheet.getRange(destinationColumn + "1:" + destinationColumn + lastRow), SpreadsheetApp.CopyPasteType.PASTE_VALUES, false);
