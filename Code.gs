@@ -73,12 +73,12 @@ function formatDocuments() {
 
   removeAllDataValidations();
 
-  const { concatenatedData, fileNames } = fetchFilesAndConcatenateData(subFolders);
+  const { concatenatedData, fileNames, rowCounts } = fetchFilesAndConcatenateData(subFolders);
 
   const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
   concatenatedSheet.getRange(1, 1, concatenatedData.length, concatenatedData[0].length).setValues(concatenatedData);
   setupAndColorSheet(concatenatedSheet);
-  const newSheetNames = splitAndSaveSheets(concatenatedSheet, fileNames);
+  const newSheetNames = splitAndSaveSheets(concatenatedSheet, fileNames, rowCounts);
 
   createListOfSheetNames(mainSheet, newSheetNames);
 
@@ -101,6 +101,7 @@ function fetchFilesAndConcatenateData(subFolders) {
   const files = subFolders.next().getFiles();
   const concatenatedData = [];
   const fileNames = [];
+  const rowCounts = [];  // Array to store row counts for each file
 
   while (files.hasNext()) {
     const file = files.next();
@@ -108,39 +109,36 @@ function fetchFilesAndConcatenateData(subFolders) {
     const linkedSheet = SpreadsheetApp.openByUrl(file.getUrl()).getActiveSheet();
     const data = linkedSheet.getDataRange().getValues();
     concatenatedData.push(...data);
+    rowCounts.push(data.length);  // Store the number of rows added for this file
   }
 
-  return { concatenatedData, fileNames };
+  return { concatenatedData, fileNames, rowCounts };  // Include rowCounts in the return value
 }
 
-function splitAndSaveSheets(concatenatedSheet, fileNames) {
-  const totalRows = concatenatedSheet.getLastRow();
-  const rowsPerSheet = Math.ceil(totalRows / fileNames.length);
-
+function splitAndSaveSheets(concatenatedSheet, fileNames, rowCounts) {
+  let startRow = 1;
   const newSheetNames = [];
 
   for (let i = 0; i < fileNames.length; i++) {
-    const startRow = i * rowsPerSheet + 1;
-    const endRow = Math.min(startRow + rowsPerSheet - 1, totalRows);
-    const sheetData = concatenatedSheet.getRange(startRow, 1, endRow - startRow + 1, concatenatedSheet.getLastColumn()).getValues();
-
+    const numRows = rowCounts[i];  // Get the number of rows for the current file
+    const endRow = startRow + numRows - 1;
     const newSheetName = fileNames[i];
     const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(newSheetName);
-    newSheet.getRange(1, 1, sheetData.length, sheetData[0].length).setValues(sheetData);
-    copyAndPasteWithFormatting(concatenatedSheet, newSheet, startRow, sheetData.length, concatenatedSheet.getLastColumn());
 
+    // Using copyTo for copying data along with formatting and validations
+    const sourceRange = concatenatedSheet.getRange(startRow, 1, numRows, concatenatedSheet.getLastColumn());
+    const targetRange = newSheet.getRange(1, 1, numRows, concatenatedSheet.getLastColumn());
+    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
+    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_COLUMN_WIDTHS, false);
+    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_CONDITIONAL_FORMATTING, false);
+    sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
+    
     newSheetNames.push(newSheetName);
+    startRow = endRow + 1;  // Update startRow for the next file
   }
 
   SpreadsheetApp.getActiveSpreadsheet().deleteSheet(concatenatedSheet);
   return newSheetNames;
-}
-
-function copyAndPasteWithFormatting(sourceSheet, targetSheet, startRow, numRows, numCols) {
-  const sourceRange = sourceSheet.getRange(startRow, 1, numRows, numCols);
-  const targetRange = targetSheet.getRange(1, 1, numRows, numCols);
-  sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_NORMAL, false);
-  sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_COLUMN_WIDTHS, false);
 }
 
 function setupAndColorSheet(sheet) {
