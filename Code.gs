@@ -2,8 +2,61 @@ function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('Uncle Bob')
     .addItem('Format Documents', 'formatDocuments')
+    .addItem('Format Individual Sheet', 'formatIndividualSheet')
     .addItem('Chart Progress', 'chartProgress')
     .addToUi();
+}
+
+function formatIndividualSheet() {
+  const ui = SpreadsheetApp.getUi();
+  const response = ui.prompt('Enter the filename (without extension) to format:');
+
+  if (response.getSelectedButton() == ui.Button.OK) {
+    const filename = response.getResponseText();
+    const file = findFileInQASetsFolder(filename);
+    
+    if (file) {
+      const sourceSheet = SpreadsheetApp.open(file).getActiveSheet();
+      const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(filename);
+      copyDataToNewSheet(sourceSheet, newSheet);
+      setupAndColorSheet(newSheet);
+      updateMainChart(filename);
+      ui.alert('Sheet formatted successfully and added to the main chart.');
+    } else {
+      ui.alert('File not found in the Q-A Sets folder.');
+    }
+  } else {
+    ui.alert('Action canceled.');
+  }
+}
+
+function findFileInQASetsFolder(filename) {
+  const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
+  const file = DriveApp.getFileById(fileId);
+  const folder = file.getParents().next();
+  const subFolders = folder.getFoldersByName('Q-A Sets');
+
+  if (!subFolders.hasNext()) {
+    throw new Error('Subdirectory Q-A Sets not found in the current folder.');
+  }
+
+  const files = subFolders.next().getFilesByName(filename);
+  return files.hasNext() ? files.next() : null;
+}
+
+function copyDataToNewSheet(sourceSheet, targetSheet) {
+  const data = sourceSheet.getDataRange().getValues();
+  const targetRange = targetSheet.getRange(1, 1, data.length, data[0].length);
+  targetRange.setValues(data);
+}
+
+function updateMainChart(filename) {
+  let mainSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sheet1'); // Ensure this is the correct sheet name
+
+  const lastRow = mainSheet.getLastRow() + 1;
+
+  mainSheet.getRange(lastRow, 1).setValue(filename);
+  mainSheet.getRange(lastRow, 2).insertCheckboxes();
 }
 
 function formatDocuments() {
