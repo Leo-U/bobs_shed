@@ -21,7 +21,6 @@ function formatIndividualSheet() {
       copyDataToNewSheet(sourceSheet, newSheet);
       setupAndColorSheet(newSheet);
       updateMainChart(filename);
-      ui.alert('Sheet formatted successfully and added to the main chart.');
     } else {
       ui.alert('File not found in the Q-A Sets folder.');
     }
