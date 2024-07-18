@@ -59,8 +59,19 @@ function updateMainChart(filename) {
 }
 
 function formatDocuments() {
-  const start = Date.now();
   const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const checkRange = mainSheet.getRange('B1:B5').getValues(); // Get values from the first five rows of column B
+
+  // Check if there are any checkboxes (either TRUE or FALSE)
+  const hasCheckboxes = checkRange.some(row => row[0] === true || row[0] === false);
+
+  if (hasCheckboxes) {
+    SpreadsheetApp.getUi().alert('Format Documents has already been run.');
+    return; // Exit the function if any cell has a checkbox
+  }
+
+  const start = Date.now();
+  // Continue with the rest of the function
   const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
   const file = DriveApp.getFileById(fileId);
   const folder = file.getParents().next();
