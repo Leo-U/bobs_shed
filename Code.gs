@@ -91,13 +91,6 @@ function formatDocuments() {
   const newSheetNames = splitAndSaveSheets(concatenatedSheet, fileNames, rowCounts);
 
   createListOfSheetNames(mainSheet, newSheetNames);
-
-  const elapsedTime = Date.now() - start;
-  const totalSeconds = Math.floor(elapsedTime / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-
-  console.log(`Time elapsed: ${minutes} min ${seconds} sec`);
 }
 
 function removeAllDataValidations() {
