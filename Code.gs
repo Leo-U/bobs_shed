@@ -1,7 +1,7 @@
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('Uncle Bob')
-    .addItem('Format Documents', 'formatDocuments')
+    .addItem('Format All Sheets', 'formatDocuments')
     .addItem('Format Individual Sheet', 'formatIndividualSheet')
     .addItem('Chart Progress', 'chartProgress')
     .addToUi();
@@ -66,7 +66,7 @@ function formatDocuments() {
   const hasCheckboxes = checkRange.some(row => row[0] === true || row[0] === false);
 
   if (hasCheckboxes) {
-    SpreadsheetApp.getUi().alert('Format Documents has already been run.');
+    SpreadsheetApp.getUi().alert("One-time operation. To add more sheets, use 'Format Individual Sheet'");
     return; // Exit the function if any cell has a checkbox
   }
 
