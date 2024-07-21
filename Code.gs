@@ -5,6 +5,14 @@ function onOpen() {
     .addItem('Format Individual Sheet', 'formatIndividualSheet')
     .addItem('Chart Progress', 'chartProgress')
     .addToUi();
+
+  // Check and set the main chart sheet ID if not already set
+  const properties = PropertiesService.getScriptProperties();
+  if (!properties.getProperty('MAIN_CHART_SHEET_ID')) {
+    // Assuming the main chart is the first sheet created, we designate it
+    const firstSheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    properties.setProperty('MAIN_CHART_SHEET_ID', firstSheet.getSheetId().toString());
+  }
 }
 
 function formatIndividualSheet() {
@@ -50,16 +58,35 @@ function copyDataToNewSheet(sourceSheet, targetSheet) {
 }
 
 function updateMainChart(filename) {
-  let mainSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Sheet1'); // Ensure this is the correct sheet name
+  let mainSheet = findMainChartSheet();
 
-  const lastRow = mainSheet.getLastRow() + 1;
+  if (mainSheet) {
+    const lastRow = mainSheet.getLastRow() + 1;
+    mainSheet.getRange(lastRow, 1).setValue(filename);
+    mainSheet.getRange(lastRow, 2).insertCheckboxes();
+  } else {
+    throw new Error('Main chart sheet not found.');
+  }
+}
 
-  mainSheet.getRange(lastRow, 1).setValue(filename);
-  mainSheet.getRange(lastRow, 2).insertCheckboxes();
+function findMainChartSheet() {
+  const properties = PropertiesService.getScriptProperties();
+  const mainChartSheetId = properties.getProperty('MAIN_CHART_SHEET_ID');
+  const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
+
+  for (const sheet of sheets) {
+    if (sheet.getSheetId().toString() === mainChartSheetId) {
+      return sheet;
+    }
+  }
+  return null;
 }
 
 function formatDocuments() {
-  const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const mainSheet = findMainChartSheet();
+  if (!mainSheet) {
+    throw new Error('Main chart sheet not found.');
+  }
   const checkRange = mainSheet.getRange('B1:B5').getValues(); // Get values from the first five rows of column B
 
   // Check if there are any checkboxes (either TRUE or FALSE)
@@ -251,7 +278,12 @@ function createListOfSheetNames(mainSheet, newSheetNames) {
 
 function chartProgress() {
   const ui = SpreadsheetApp.getUi();
-  const mainSheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const mainSheet = findMainChartSheet();
+  if (!mainSheet) {
+    ui.alert('Main chart sheet not found.');
+    return;
+  }
+  
   const rows = mainSheet.getDataRange().getValues();
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
 
