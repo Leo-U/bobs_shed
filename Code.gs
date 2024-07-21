@@ -1,8 +1,8 @@
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('Uncle Bob')
+  ui.createMenu('Learning Insights')
     .addItem('Format All Sheets', 'formatDocuments')
-    .addItem('Format Individual Sheet', 'formatIndividualSheet')
+    .addItem('Format Additional Sheet', 'formatIndividualSheet')
     .addItem('Chart Progress', 'chartProgress')
     .addToUi();
 
