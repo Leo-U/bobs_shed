@@ -28,6 +28,7 @@ function formatIndividualSheet() {
       const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(filename);
       copyDataToNewSheet(sourceSheet, newSheet);
       setupAndColorSheet(newSheet);
+      wrapText(newSheet);  // Wrap text for the entire sheet
       updateMainChart(filename);
     } else {
       ui.alert('File not found in the Q-A Sets folder.');
@@ -35,6 +36,11 @@ function formatIndividualSheet() {
   } else {
     ui.alert('Action canceled.');
   }
+}
+
+function wrapText(sheet) {
+  const range = sheet.getDataRange();
+  range.setWrap(true);  // Set text wrapping for all cells in the range
 }
 
 function findFileInQASetsFolder(filename) {
@@ -115,6 +121,7 @@ function formatDocuments() {
   const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
   concatenatedSheet.getRange(1, 1, concatenatedData.length, concatenatedData[0].length).setValues(concatenatedData);
   setupAndColorSheet(concatenatedSheet);
+  wrapText(concatenatedSheet);  // Wrap text for the entire sheet
   const newSheetNames = splitAndSaveSheets(concatenatedSheet, fileNames, rowCounts);
 
   createListOfSheetNames(mainSheet, newSheetNames);
@@ -163,6 +170,7 @@ function splitAndSaveSheets(concatenatedSheet, fileNames, rowCounts) {
     sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_CONDITIONAL_FORMATTING, false);
     sourceRange.copyTo(targetRange, SpreadsheetApp.CopyPasteType.PASTE_DATA_VALIDATION, false);
     
+    wrapText(newSheet);  // Wrap text for the entire new sheet
     newSheetNames.push(newSheetName);
     startRow = endRow + 1;  // Update startRow for the next file
   }
