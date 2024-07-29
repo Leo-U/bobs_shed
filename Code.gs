@@ -22,14 +22,21 @@ function formatIndividualSheet() {
   if (response.getSelectedButton() == ui.Button.OK) {
     const filename = response.getResponseText();
     const file = findFileInQASetsFolder(filename);
-    
+
     if (file) {
+      // Start processing and display a toast message
+      SpreadsheetApp.getActiveSpreadsheet().toast('Processing...', 'Status', -1);  // -1 indicates that it will stay until explicitly cleared
+      
       const sourceSheet = SpreadsheetApp.open(file).getActiveSheet();
       const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(filename);
       copyDataToNewSheet(sourceSheet, newSheet);
       setupAndColorSheet(newSheet);
       wrapText(newSheet);  // Wrap text for the entire sheet
       updateMainChart(filename);
+
+      // Finish processing and clear the toast message
+      SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
+      SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 10);  // 10 seconds before disappearing
     } else {
       ui.alert('File not found in the Q-A Sets folder.');
     }
@@ -37,6 +44,8 @@ function formatIndividualSheet() {
     ui.alert('Action canceled.');
   }
 }
+
+
 
 function wrapText(sheet) {
   const range = sheet.getDataRange();
