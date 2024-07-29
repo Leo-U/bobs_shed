@@ -124,6 +124,9 @@ function formatDocuments() {
 
   removeAllDataValidations();
 
+  // Start processing and display a toast message
+  SpreadsheetApp.getActiveSpreadsheet().toast('Processing. Please wait...', 'Status', -1);  // -1 indicates that it will stay until explicitly cleared
+
   const { concatenatedData, fileNames, rowCounts } = fetchFilesAndConcatenateData(subFolders);
 
   const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
@@ -133,7 +136,12 @@ function formatDocuments() {
   const newSheetNames = splitAndSaveSheets(concatenatedSheet, fileNames, rowCounts);
 
   createListOfSheetNames(mainSheet, newSheetNames);
+
+  // Finish processing and clear the toast message
+  SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
+  SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 10);  // 10 seconds before disappearing
 }
+
 
 function removeAllDataValidations() {
   const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
