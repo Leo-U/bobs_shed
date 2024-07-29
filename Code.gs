@@ -103,7 +103,6 @@ function formatDocuments() {
     return; // Exit the function if any cell has a checkbox
   }
 
-  const start = Date.now();
   // Continue with the rest of the function
   const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
   const file = DriveApp.getFileById(fileId);
