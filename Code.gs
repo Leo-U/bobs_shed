@@ -25,7 +25,7 @@ function formatIndividualSheet() {
 
     if (file) {
       // Start processing and display a toast message
-      SpreadsheetApp.getActiveSpreadsheet().toast('Processing...', 'Status', -1);  // -1 indicates that it will stay until explicitly cleared
+      SpreadsheetApp.getActiveSpreadsheet().toast('Formatting documents. Please wait...', 'Status', -1);  // -1 indicates that it will stay until explicitly cleared
       
       const sourceSheet = SpreadsheetApp.open(file).getActiveSheet();
       const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(filename);
@@ -36,7 +36,7 @@ function formatIndividualSheet() {
 
       // Finish processing and clear the toast message
       SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
-      SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 10);  // 10 seconds before disappearing
+      SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 3);  // 3 seconds before disappearing
     } else {
       ui.alert('File not found in the Q-A Sets folder.');
     }
@@ -125,7 +125,7 @@ function formatDocuments() {
   removeAllDataValidations();
 
   // Start processing and display a toast message
-  SpreadsheetApp.getActiveSpreadsheet().toast('Processing. Please wait...', 'Status', -1);  // -1 indicates that it will stay until explicitly cleared
+  SpreadsheetApp.getActiveSpreadsheet().toast('Formatting documents. Please wait...', 'Status', -1);  // -1 indicates that it will stay until explicitly cleared
 
   const { concatenatedData, fileNames, rowCounts } = fetchFilesAndConcatenateData(subFolders);
 
@@ -139,7 +139,7 @@ function formatDocuments() {
 
   // Finish processing and clear the toast message
   SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
-  SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 10);  // 10 seconds before disappearing
+  SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 3);  // 3 seconds before disappearing
 }
 
 
@@ -321,6 +321,9 @@ function chartProgress() {
       if (linkedSheet) {
         anyProcessed = true;
         processQASheet(linkedSheet, mainSheet, index + 1);
+
+        // Provide feedback on the sheet being processed
+        spreadsheet.toast(`Charting progress in ${sheetName}...`, 'Status', -1);
       }
     }
   });
@@ -328,7 +331,12 @@ function chartProgress() {
   if (!anyProcessed) {
     ui.alert('No Q-A sets selected to count questions. Please check at least one and ensure they contain valid sheet names.');
   }
+
+  // Finish processing and clear the toast message
+  SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
+  spreadsheet.toast('Progress charted successfully.', 'Status', 3);  // 3 seconds before disappearing
 }
+
 
 function processQASheet(qaSheet, mainSheet, rowIndex) {
   const data = qaSheet.getDataRange().getValues();
