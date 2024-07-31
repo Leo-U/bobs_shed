@@ -1,4 +1,8 @@
-function onOpen() {
+function onInstall(e) {
+  onOpen(e);
+}
+
+function onOpen(e) {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('Learning Insights')
     .addItem('Format All Sheets', 'formatDocuments')
@@ -44,8 +48,6 @@ function formatIndividualSheet() {
     ui.alert('Action canceled.');
   }
 }
-
-
 
 function wrapText(sheet) {
   const range = sheet.getDataRange();
@@ -141,7 +143,6 @@ function formatDocuments() {
   SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
   SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 3);  // 3 seconds before disappearing
 }
-
 
 function removeAllDataValidations() {
   const sheets = SpreadsheetApp.getActiveSpreadsheet().getSheets();
@@ -336,7 +337,6 @@ function chartProgress() {
   SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
   spreadsheet.toast('Progress charted successfully.', 'Status', 3);  // 3 seconds before disappearing
 }
-
 
 function processQASheet(qaSheet, mainSheet, rowIndex) {
   const data = qaSheet.getDataRange().getValues();
