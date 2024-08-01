@@ -42,16 +42,10 @@ function formatIndividualSheet() {
       SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
       SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 3);  // 3 seconds before disappearing
     } else {
-      ui.showModalDialog(
-        HtmlService.createHtmlOutput('File not found in the Q-A Sets folder.<br><button onclick="google.script.host.close()">Close</button>'),
-        'Error'
-      );
+      ui.alert('File not found in the Q-A Sets folder.');
     }
   } else {
-    ui.showModalDialog(
-      HtmlService.createHtmlOutput('Action canceled.<br><button onclick="google.script.host.close()">Close</button>'),
-      'Canceled'
-    );
+    ui.alert('Action canceled.');
   }
 }
 
@@ -108,8 +102,7 @@ function findMainChartSheet() {
 function formatDocuments() {
   const mainSheet = findMainChartSheet();
   if (!mainSheet) {
-    displayError('Main chart sheet not found.');
-    return;
+    throw new Error('Main chart sheet not found.');
   }
   const checkRange = mainSheet.getRange('B1:B5').getValues(); // Get values from the first five rows of column B
 
@@ -117,7 +110,7 @@ function formatDocuments() {
   const hasCheckboxes = checkRange.some(row => row[0] === true || row[0] === false);
 
   if (hasCheckboxes) {
-    displayError("One-time operation. To add more sheets, use 'Format Individual Sheet'");
+    SpreadsheetApp.getUi().alert("One-time operation. To add more sheets, use 'Format Individual Sheet'");
     return; // Exit the function if any cell has a checkbox
   }
 
@@ -128,8 +121,7 @@ function formatDocuments() {
   const subFolders = folder.getFoldersByName('Q-A Sets');
 
   if (!subFolders.hasNext()) {
-    displayError('Subdirectory Q-A Sets not found in the current folder.');
-    return;
+    throw new Error('Subdirectory Q-A Sets not found in the current folder.');
   }
 
   removeAllDataValidations();
@@ -313,7 +305,7 @@ function chartProgress() {
   const ui = SpreadsheetApp.getUi();
   const mainSheet = findMainChartSheet();
   if (!mainSheet) {
-    displayError('Main chart sheet not found.');
+    ui.alert('Main chart sheet not found.');
     return;
   }
   
@@ -338,7 +330,7 @@ function chartProgress() {
   });
 
   if (!anyProcessed) {
-    displayError('No Q-A sets selected to count questions. Please check at least one and ensure they contain valid sheet names.');
+    ui.alert('No Q-A sets selected to count questions. Please check at least one and ensure they contain valid sheet names.');
   }
 
   // Finish processing and clear the toast message
@@ -388,14 +380,4 @@ function getColorBasedOnPercentage(percentGreen) {
   if (percentGreen >= 70) return '#ffd966'; // Yellow
   if (percentGreen >= 60) return '#f6b26b'; // Orange
   return '#dd7e6b'; // Red
-}
-
-// Function to display error messages in a dialog window
-function displayError(message) {
-  const ui = SpreadsheetApp.getUi();
-  const htmlOutput = HtmlService.createHtmlOutput(`
-    <p>${message}</p>
-    <button onclick="google.script.host.close()">Close</button>
-  `);
-  ui.showModalDialog(htmlOutput, 'Error');
 }
