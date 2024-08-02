@@ -4,7 +4,7 @@ function onInstall(e) {
 
 function onOpen(e) {
   const ui = SpreadsheetApp.getUi();
-  ui.createMenu('Learning Insights')
+  ui.createAddonMenu('Learning Insights')
     .addItem('Format All Sheets', 'formatDocuments')
     .addItem('Format Additional Sheet', 'formatIndividualSheet')
     .addItem('Chart Progress', 'chartProgress')
