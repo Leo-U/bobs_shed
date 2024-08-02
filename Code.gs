@@ -4,11 +4,11 @@ function onInstall(e) {
 
 function onOpen(e) {
   const ui = SpreadsheetApp.getUi();
-  ui.createAddonMenu()
-    .addItem('Format All Sheets', 'formatDocuments')
-    .addItem('Format Additional Sheet', 'formatIndividualSheet')
-    .addItem('Chart Progress', 'chartProgress')
-    .addToUi();
+  const menu = ui.createAddonMenu();
+  menu.addItem('Format All Sheets', 'formatDocuments')
+      .addItem('Format Additional Sheet', 'formatIndividualSheet')
+      .addItem('Chart Progress', 'chartProgress')
+      .addToUi();
 
   // Check and set the main chart sheet ID if not already set
   const properties = PropertiesService.getScriptProperties();
@@ -21,32 +21,148 @@ function onOpen(e) {
 
 function formatIndividualSheet() {
   const ui = SpreadsheetApp.getUi();
-  const response = ui.prompt('Enter the filename (without extension) to format:');
 
-  if (response.getSelectedButton() == ui.Button.OK) {
-    const filename = response.getResponseText();
-    const file = findFileInQASetsFolder(filename);
+  try {
+    disableMenuItems();
+    const response = ui.prompt('Enter the filename (without extension) to format:');
 
-    if (file) {
-      // Start processing and display a toast message
-      SpreadsheetApp.getActiveSpreadsheet().toast('Formatting documents. Please wait...', 'Status', -1);  // -1 indicates that it will stay until explicitly cleared
-      
-      const sourceSheet = SpreadsheetApp.open(file).getActiveSheet();
-      const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(filename);
-      copyDataToNewSheet(sourceSheet, newSheet);
-      setupAndColorSheet(newSheet);
-      wrapText(newSheet);  // Wrap text for the entire sheet
-      updateMainChart(filename);
+    if (response.getSelectedButton() == ui.Button.OK) {
+      const filename = response.getResponseText();
+      const file = findFileInQASetsFolder(filename);
 
-      // Finish processing and clear the toast message
-      SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
-      SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 3);  // 3 seconds before disappearing
+      if (file) {
+        // Start processing and display a toast message
+        SpreadsheetApp.getActiveSpreadsheet().toast('Formatting documents. Please wait...', 'Status', -1);  // -1 indicates that it will stay until explicitly cleared
+
+        const sourceSheet = SpreadsheetApp.open(file).getActiveSheet();
+        const newSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet(filename);
+        copyDataToNewSheet(sourceSheet, newSheet);
+        setupAndColorSheet(newSheet);
+        wrapText(newSheet);  // Wrap text for the entire sheet
+        updateMainChart(filename);
+
+        // Finish processing and clear the toast message
+        SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
+        SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 3);  // 3 seconds before disappearing
+      } else {
+        ui.alert('File not found in the Q-A Sets folder.');
+      }
     } else {
-      ui.alert('File not found in the Q-A Sets folder.');
+      ui.alert('Action canceled.');
     }
-  } else {
-    ui.alert('Action canceled.');
+  } finally {
+    enableMenuItems();
   }
+}
+
+function formatDocuments() {
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    disableMenuItems();
+    const mainSheet = findMainChartSheet();
+    if (!mainSheet) {
+      throw new Error('Main chart sheet not found.');
+    }
+    const checkRange = mainSheet.getRange('B1:B5').getValues(); // Get values from the first five rows of column B
+
+    // Check if there are any checkboxes (either TRUE or FALSE)
+    const hasCheckboxes = checkRange.some(row => row[0] === true || row[0] === false);
+
+    if (hasCheckboxes) {
+      SpreadsheetApp.getUi().alert("One-time operation. To add more sheets, use 'Format Individual Sheet'");
+      return; // Exit the function if any cell has a checkbox
+    }
+
+    // Continue with the rest of the function
+    const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
+    const file = DriveApp.getFileById(fileId);
+    const folder = file.getParents().next();
+    const subFolders = folder.getFoldersByName('Q-A Sets');
+
+    if (!subFolders.hasNext()) {
+      throw new Error('Subdirectory Q-A Sets not found in the current folder.');
+    }
+
+    removeAllDataValidations();
+
+    // Start processing and display a toast message
+    SpreadsheetApp.getActiveSpreadsheet().toast('Formatting documents. Please wait...', 'Status', -1);  // -1 indicates that it will stay until explicitly cleared
+
+    const { concatenatedData, fileNames, rowCounts } = fetchFilesAndConcatenateData(subFolders);
+
+    const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
+    concatenatedSheet.getRange(1, 1, concatenatedData.length, concatenatedData[0].length).setValues(concatenatedData);
+    setupAndColorSheet(concatenatedSheet);
+    wrapText(concatenatedSheet);  // Wrap text for the entire sheet
+    const newSheetNames = splitAndSaveSheets(concatenatedSheet, fileNames, rowCounts);
+
+    createListOfSheetNames(mainSheet, newSheetNames);
+
+    // Finish processing and clear the toast message
+    SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
+    SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 3);  // 3 seconds before disappearing
+  } finally {
+    enableMenuItems();
+  }
+}
+
+function chartProgress() {
+  const ui = SpreadsheetApp.getUi();
+
+  try {
+    disableMenuItems();
+    const mainSheet = findMainChartSheet();
+    if (!mainSheet) {
+      ui.alert('Main chart sheet not found.');
+      return;
+    }
+
+    const rows = mainSheet.getDataRange().getValues();
+    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+
+    let anyProcessed = false;
+
+    rows.forEach((row, index) => {
+      if (row[1] === true) { // Check if checkbox is ticked
+        const sheetName = row[0];
+        const linkedSheet = spreadsheet.getSheetByName(sheetName);
+
+        if (linkedSheet) {
+          anyProcessed = true;
+          processQASheet(linkedSheet, mainSheet, index + 1);
+
+          // Provide feedback on the sheet being processed
+          spreadsheet.toast(`Charting progress in ${sheetName}...`, 'Status', -1);
+        }
+      }
+    });
+
+    if (!anyProcessed) {
+      ui.alert('No Q-A sets selected to count questions. Please check at least one and ensure they contain valid sheet names.');
+    }
+
+    // Finish processing and clear the toast message
+    SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
+    spreadsheet.toast('Progress charted successfully.', 'Status', 3);  // 3 seconds before disappearing
+  } finally {
+    enableMenuItems();
+  }
+}
+
+function disableMenuItems() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createAddonMenu()
+    .addItem('Actions in progress. Please Wait.', 'noopFunction')
+    .addToUi();
+}
+
+function noopFunction() {
+  // This function intentionally left blank.
+}
+
+function enableMenuItems() {
+  onOpen();
 }
 
 function wrapText(sheet) {
@@ -97,51 +213,6 @@ function findMainChartSheet() {
     }
   }
   return null;
-}
-
-function formatDocuments() {
-  const mainSheet = findMainChartSheet();
-  if (!mainSheet) {
-    throw new Error('Main chart sheet not found.');
-  }
-  const checkRange = mainSheet.getRange('B1:B5').getValues(); // Get values from the first five rows of column B
-
-  // Check if there are any checkboxes (either TRUE or FALSE)
-  const hasCheckboxes = checkRange.some(row => row[0] === true || row[0] === false);
-
-  if (hasCheckboxes) {
-    SpreadsheetApp.getUi().alert("One-time operation. To add more sheets, use 'Format Individual Sheet'");
-    return; // Exit the function if any cell has a checkbox
-  }
-
-  // Continue with the rest of the function
-  const fileId = SpreadsheetApp.getActiveSpreadsheet().getId();
-  const file = DriveApp.getFileById(fileId);
-  const folder = file.getParents().next();
-  const subFolders = folder.getFoldersByName('Q-A Sets');
-
-  if (!subFolders.hasNext()) {
-    throw new Error('Subdirectory Q-A Sets not found in the current folder.');
-  }
-
-  removeAllDataValidations();
-
-  // Start processing and display a toast message
-  SpreadsheetApp.getActiveSpreadsheet().toast('Formatting documents. Please wait...', 'Status', -1);  // -1 indicates that it will stay until explicitly cleared
-
-  const { concatenatedData, fileNames, rowCounts } = fetchFilesAndConcatenateData(subFolders);
-
-  const concatenatedSheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('Concatenated Q-A Data');
-  concatenatedSheet.getRange(1, 1, concatenatedData.length, concatenatedData[0].length).setValues(concatenatedData);
-  setupAndColorSheet(concatenatedSheet);
-  wrapText(concatenatedSheet);  // Wrap text for the entire sheet
-  const newSheetNames = splitAndSaveSheets(concatenatedSheet, fileNames, rowCounts);
-
-  createListOfSheetNames(mainSheet, newSheetNames);
-
-  // Finish processing and clear the toast message
-  SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
-  SpreadsheetApp.getActiveSpreadsheet().toast('Formatting completed successfully.', 'Status', 3);  // 3 seconds before disappearing
 }
 
 function removeAllDataValidations() {
@@ -299,43 +370,6 @@ function createListOfSheetNames(mainSheet, newSheetNames) {
   mainSheet.getRange(lastRow, 1, fileData.length, 1).setValues(fileData).setFontSize(10).setFontWeight('normal').setWrap(true);
 
   mainSheet.getRange(lastRow, 2, fileData.length, 1).insertCheckboxes();
-}
-
-function chartProgress() {
-  const ui = SpreadsheetApp.getUi();
-  const mainSheet = findMainChartSheet();
-  if (!mainSheet) {
-    ui.alert('Main chart sheet not found.');
-    return;
-  }
-  
-  const rows = mainSheet.getDataRange().getValues();
-  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-
-  let anyProcessed = false;
-
-  rows.forEach((row, index) => {
-    if (row[1] === true) { // Check if checkbox is ticked
-      const sheetName = row[0];
-      const linkedSheet = spreadsheet.getSheetByName(sheetName);
-
-      if (linkedSheet) {
-        anyProcessed = true;
-        processQASheet(linkedSheet, mainSheet, index + 1);
-
-        // Provide feedback on the sheet being processed
-        spreadsheet.toast(`Charting progress in ${sheetName}...`, 'Status', -1);
-      }
-    }
-  });
-
-  if (!anyProcessed) {
-    ui.alert('No Q-A sets selected to count questions. Please check at least one and ensure they contain valid sheet names.');
-  }
-
-  // Finish processing and clear the toast message
-  SpreadsheetApp.flush();  // Apply all pending Spreadsheet changes
-  spreadsheet.toast('Progress charted successfully.', 'Status', 3);  // 3 seconds before disappearing
 }
 
 function processQASheet(qaSheet, mainSheet, rowIndex) {
